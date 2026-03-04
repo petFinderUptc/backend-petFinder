@@ -28,7 +28,27 @@ Controller → Service → Repository → Database
 - **Storage**: Azure Blob Storage *(preparado para futura integración)*
 - **Autenticación**: JWT
 - **Validación**: class-validator
+- **Calidad de Código**: ESLint, Prettier, Husky, lint-staged
 - **CI/CD**: Azure DevOps *(preparado)*
+
+## 🎯 Calidad de Código
+
+Este proyecto implementa herramientas automatizadas para mantener altos estándares de código:
+
+### ESLint
+Análisis estático de código para detectar errores y malas prácticas.
+
+### Prettier
+Formateador automático que asegura consistencia en el estilo del código.
+
+### Husky + lint-staged
+Pre-commit hooks que ejecutan automáticamente:
+- ✅ ESLint con auto-fix
+- ✅ Prettier para formateo
+
+**Beneficio**: Todo código commiteado cumple automáticamente con los estándares del proyecto.
+
+📖 Ver [Guía de Pre-commit Hooks](docs/PRE-COMMIT-HOOKS.md) para más detalles.
 
 ## 📁 Estructura del Proyecto
 
@@ -84,11 +104,13 @@ La API estará disponible en `http://localhost:3000`
 ```bash
 npm run start:dev      # Modo desarrollo con hot-reload
 npm run build          # Compilar para producción
-npm run lint           # Ejecutar linter
-npm run format         # Formatear código
+npm run lint           # Ejecutar ESLint con auto-fix
+npm run format         # Formatear código con Prettier
 npm run test           # Ejecutar tests unitarios
 npm run test:e2e       # Ejecutar tests E2E
 ```
+
+> **Nota**: Los pre-commit hooks ejecutan automáticamente `lint` y `format` en archivos modificados antes de cada commit.
 
 ## 🔐 Autenticación
 

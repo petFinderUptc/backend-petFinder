@@ -73,6 +73,44 @@ src/
 - **Variables**: camelCase (ej: `userId`, `isActive`)
 - **Constantes**: UPPER_SNAKE_CASE (ej: `JWT_SECRET`, `API_PREFIX`)
 
+### Calidad de Código Automática
+
+Este proyecto utiliza **pre-commit hooks** para asegurar la calidad del código:
+
+#### 🔍 ESLint
+Analiza el código en busca de errores y malas prácticas.
+
+```bash
+# Ejecutar manualmente
+npm run lint
+```
+
+#### ✨ Prettier
+Formatea automáticamente el código para mantener consistencia.
+
+```bash
+# Ejecutar manualmente
+npm run format
+```
+
+#### 🎣 Husky + lint-staged
+**Cada commit ejecuta automáticamente**:
+1. ESLint con auto-fix en archivos .ts
+2. Prettier para formateo
+
+**No necesitas preocuparte por el formato** - el sistema lo corrige automáticamente.
+
+```bash
+# Flujo normal de trabajo
+git add .
+git commit -m "feat: nueva funcionalidad"
+# ✓ ESLint analiza y corrige
+# ✓ Prettier formatea
+# ✓ Commit se completa automáticamente
+```
+
+📖 **Ver**: [Guía completa de Pre-commit Hooks](docs/PRE-COMMIT-HOOKS.md)
+
 ### Estructura de un Módulo
 
 ```typescript
@@ -343,10 +381,81 @@ AZURE_STORAGE_CONNECTION_STRING=<tu-connection-string>
 
 ## 🤝 Contribución
 
-1. Crear una rama desde `develop`
-2. Hacer commits descriptivos
-3. Ejecutar tests antes de hacer push
-4. Crear Pull Request hacia `develop`
+### Flujo de trabajo con Git
+
+1. **Crear rama desde `develop`**
+   ```bash
+   git checkout develop
+   git pull origin develop
+   git checkout -b feature/nombre-funcionalidad
+   ```
+
+2. **Hacer commits descriptivos**
+   ```bash
+   # Los pre-commit hooks se ejecutan automáticamente
+   git add .
+   git commit -m "feat: agregar nueva funcionalidad"
+   ```
+   
+   ✅ **Pre-commit hooks automáticos**:
+   - ESLint corrige problemas de código
+   - Prettier formatea el código
+   - Si hay errores críticos, el commit se cancela
+
+3. **Ejecutar tests antes de push**
+   ```bash
+   npm run test
+   npm run test:e2e
+   ```
+
+4. **Push y crear Pull Request**
+   ```bash
+   git push origin feature/nombre-funcionalidad
+   # Crear PR hacia develop en GitHub/Azure DevOps
+   ```
+
+### Convenciones de Commits
+
+Usar formato de [Conventional Commits](https://www.conventionalcommits.org/):
+
+- `feat:` Nueva funcionalidad
+- `fix:` Corrección de bug
+- `docs:` Cambios en documentación
+- `style:` Cambios de formato (no afectan lógica)
+- `refactor:` Refactorización de código
+- `test:` Agregar o modificar tests
+- `chore:` Tareas de mantenimiento
+
+**Ejemplos**:
+```bash
+git commit -m "feat: agregar endpoint de búsqueda de mascotas"
+git commit -m "fix: corregir validación de email en registro"
+git commit -m "docs: actualizar README con nuevos endpoints"
+```
+
+### ⚡ Solución de Problemas
+
+#### Pre-commit hook falla
+Si el commit se cancela:
+
+```bash
+# Ver los errores
+npm run lint
+
+# Corregir manualmente si es necesario
+# Volver a intentar commit
+git add .
+git commit -m "tu mensaje"
+```
+
+#### Omitir hooks (NO RECOMENDADO)
+Solo en casos excepcionales:
+
+```bash
+git commit -m "mensaje" --no-verify
+```
+
+⚠️ Esto puede introducir código que no cumple estándares.
 
 ---
 
