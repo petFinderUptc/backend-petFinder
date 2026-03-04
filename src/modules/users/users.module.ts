@@ -1,18 +1,24 @@
 /**
- * Módulo de usuarios
+ * Módulo de Usuarios
  *
- * Gestiona toda la funcionalidad relacionada con usuarios del sistema.
- *
- * Exporta UsersService para que pueda ser usado por AuthModule
+ * Módulo de NestJS que orquesta las dependencias del contexto de usuarios.
+ * Conecta Controllers (Presentación) → Services (Aplicación) → Repositories (Infraestructura)
  */
 
 import { Module } from '@nestjs/common';
-import { UsersController } from './users.controller';
-import { UsersService } from './users.service';
+import { UsersController } from '../../presentation/controllers';
+import { UsersService } from '../../application/services';
+import { InMemoryUserRepository } from '../../infrastructure/database/in-memory';
 
 @Module({
   controllers: [UsersController],
-  providers: [UsersService],
-  exports: [UsersService], // Exportar para uso en AuthModule
+  providers: [
+    UsersService,
+    {
+      provide: 'IUserRepository',
+      useClass: InMemoryUserRepository,
+    },
+  ],
+  exports: [UsersService],
 })
 export class UsersModule {}
