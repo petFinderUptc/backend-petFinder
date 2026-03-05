@@ -607,11 +607,74 @@ AZURE_STORAGE_CONTAINER=pet-images
 
 ### Pipeline CI/CD (Azure DevOps)
 
-El proyecto está preparado para un pipeline con:
-1. **Build**: `npm install && npm run build`
-2. **Test**: `npm run test && npm run test:e2e`
-3. **Lint**: `npm run lint`
-4. **Deploy**: Deploy a Azure App Service
+El proyecto incluye un pipeline completo de CI/CD automatizado para Azure DevOps:
+
+#### 📋 Archivos del Pipeline
+
+- **`azure-pipelines.yml`**: Pipeline principal con 4 stages
+- **`Dockerfile`**: Containerización para Azure App Service
+- **`.dockerignore`**: Optimización de builds de Docker
+- **`scripts/`**: Scripts de deployment manual
+
+#### 🔄 Flujo del Pipeline
+
+**Stage 1: Build & Test**
+- ✅ Instalación de dependencias (npm ci)
+- ✅ Lint con ESLint
+- ✅ Verificación de formato (Prettier)
+- ✅ Build de TypeScript
+- ✅ Tests unitarios con coverage
+- ✅ Publicación de resultados y artifacts
+
+**Stage 2: Deploy to Staging** (rama `develop`)
+- ✅ Deploy automático a Azure App Service (staging slot)
+- ✅ Health check post-deployment
+
+**Stage 3: Deploy to Production** (rama `main`)
+- ✅ Requiere aprobación manual
+- ✅ Deploy a Azure App Service (production)
+- ✅ Health check post-deployment
+
+**Stage 4: Post-Deployment Tests**
+- ✅ Smoke tests en producción
+- ✅ Verificación de endpoints críticos
+
+#### 🚀 Triggers
+
+```yaml
+# Push automático
+main → Production (con aprobación)
+develop → Staging
+feature/* → Build & Test only
+
+# Pull Requests
+PR a main/develop → Build & Test validation
+```
+
+#### 📖 Configuración Completa
+
+Ver guía detallada: [Configuración de Azure DevOps](docs/AZURE-DEVOPS-SETUP.md)
+
+**Pasos principales:**
+1. Crear recursos en Azure (App Service, Resource Group)
+2. Configurar Service Connection en Azure DevOps
+3. Crear Environments (staging, production)
+4. Configurar variables y secrets
+5. Conectar repositorio y ejecutar pipeline
+
+#### 🛠️ Deployment Manual
+
+Para deployments de emergencia, usar scripts incluidos:
+
+```bash
+# Windows (PowerShell)
+.\scripts\deploy-azure.ps1 -Environment staging
+.\scripts\deploy-azure.ps1 -Environment production
+
+# Linux/Mac (Bash)
+./scripts/deploy-azure.sh staging
+./scripts/deploy-azure.sh production
+```
 
 ## 🎓 Beneficios de esta Arquitectura
 
@@ -645,6 +708,7 @@ El proyecto está preparado para un pipeline con:
 
 - 📖 [Guía Completa de Arquitectura en Capas](docs/ARQUITECTURA-CAPAS.md)
 - 🔧 [Guía de Pre-commit Hooks](docs/PRE-COMMIT-HOOKS.md)
+- ☁️ [Configuración de Azure DevOps CI/CD](docs/AZURE-DEVOPS-SETUP.md)
 
 ## 🤝 Contribuir
 
