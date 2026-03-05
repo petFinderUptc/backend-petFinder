@@ -32,9 +32,11 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Prefijo global para todas las rutas
+  // Prefijo global para todas las rutas (excepto health checks)
   const apiPrefix = configService.get<string>('app.apiPrefix');
-  app.setGlobalPrefix(apiPrefix);
+  app.setGlobalPrefix(apiPrefix, {
+    exclude: ['/', 'health', 'info'],
+  });
 
   // Validación global con class-validator
   app.useGlobalPipes(

@@ -20,6 +20,9 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { configuration } from './infrastructure/config';
 
+// Controladores raíz
+import { AppController } from './app.controller';
+
 // Módulos de negocio
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
@@ -47,7 +50,7 @@ import { PostsModule } from './modules/posts/posts.module';
     // MatchingModule,
     // MessagingModule,
   ],
-  controllers: [],
+  controllers: [AppController],
   providers: [],
 })
 export class AppModule {}
