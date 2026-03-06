@@ -3,14 +3,15 @@
  *
  * Capa de Presentación - Endpoints HTTP para gestión de usuarios
  *
- * Endpoints:
- * - GET /users - Listar todos los usuarios (solo admin)
- * - GET /users/:id - Obtener un usuario por ID
- * - GET /users/profile - Obtener perfil del usuario autenticado
- * - PUT /users/profile - Actualizar perfil del usuario autenticado
- * - DELETE /users/:id - Eliminar usuario (solo admin)
+ * Endpoints protegidos:
+ * - GET /users - Listar todos los usuarios (SOLO ADMIN) ✅
+ * - GET /users/profile/me - Obtener perfil del usuario autenticado ✅
+ * - PUT /users/profile/me - Actualizar perfil del usuario autenticado ✅
+ * - PUT /users/:id - Actualizar cualquier usuario (SOLO ADMIN) ✅
+ * - DELETE /users/:id - Eliminar usuario (SO ADMIN) ✅
  *
- * FASE 2: Agregar guards de autenticación y autorización
+ * Endpoints públicos:
+ * - GET /users/:id - Obtener un usuario por ID (público para ver perfiles)
  */
 
 import {
@@ -23,9 +24,15 @@ import {
   Delete,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
 import { UsersService } from '../../application/services';
 import { CreateUserDto, UpdateUserDto, UserResponseDto } from '../../application/dtos/users';
+import { JwtAuthGuard } from '../guards/jwt-auth.guard';
+import { RolesGuard } from '../guards/roles.guard';
+import { Roles } from '../decorators/roles.decorator';
+import { CurrentUser, UserFromJwt } from '../decorators/current-user.decorator';
+import { UserRole } from '../../domain/enums';
 
 @Controller('users')
 export class UsersController {
@@ -45,11 +52,12 @@ export class UsersController {
   /**
    * Obtener todos los usuarios
    * GET /api/v1/users
-   *
-   * TODO: FASE 2 - Agregar guard @UseGuards(JwtAuthGuard, RolesGuard)
-   * TODO: FASE 2 - Agregar decorator @Roles(UserRole.ADMIN)
+   * 
+   * Protección: Solo usuarios con rol ADMIN
    */
   @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
   async findAll(): Promise<UserResponseDto[]> {
     return this.usersService.findAll();
   }
@@ -57,6 +65,8 @@ export class UsersController {
   /**
    * Obtener un usuario por ID
    * GET /api/v1/users/:id
+   * 
+   * Endpoint público (para ver perfiles de otros usuarios)
    */
   @Get(':id')
   async findOne(@Param('id') id: string): Promise<UserResponseDto> {
@@ -65,38 +75,44 @@ export class UsersController {
 
   /**
    * Obtener perfil del usuario autenticado
-   * GET /api/v1/users/profile
-   *
-   * TODO: FASE 2 - Agregar @UseGuards(JwtAuthGuard)
-   * TODO: FASE 2 - Usar @CurrentUser() decorator para obtener user desde JWT
+   * GET /api/v1/users/profile/me
+   * 
+   * Protección: Requiere autenticación (cualquier usuario)
+   * Extrae el usuario desde el token JWT
    */
   @Get('profile/me')
-  async getProfile(): Promise<UserResponseDto> {
-    // TODO: Obtener ID del usuario desde el token JWT
-    const mockUserId = 'current-user-id';
-    return this.usersService.findOne(mockUserId);
+  @UseGuards(JwtAuthGuard)
+  async getProfile(@CurrentUser() user: UserFromJwt): Promise<UserResponseDto> {
+    // El decorador @CurrentUser() extrae el usuario desde request.user
+    return this.usersService.findOne(user.id);
   }
 
   /**
    * Actualizar perfil del usuario autenticado
-   * PUT /api/v1/users/profile
-   *
-   * TODO: FASE 2 - Agregar @UseGuards(JwtAuthGuard)
+   * PUT /api/v1/users/profile/me
+   * 
+   * Protección: Requiere autenticación (cualquier usuario)
+   * Solo puede actualizar su propio perfil
    */
   @Put('profile/me')
-  async updateProfile(@Body() updateUserDto: UpdateUserDto): Promise<UserResponseDto> {
-    // TODO: Obtener ID del usuario desde el token JWT
-    const mockUserId = 'current-user-id';
-    return this.usersService.update(mockUserId, updateUserDto);
+  @UseGuards(JwtAuthGuard)
+  async updateProfile(
+    @CurrentUser() user: UserFromJwt,
+    @Body() updateUserDto: UpdateUserDto,
+  ): Promise<UserResponseDto> {
+    // El decorador @CurrentUser() extrae el usuario desde request.user
+    return this.usersService.update(user.id, updateUserDto);
   }
 
   /**
    * Actualizar cualquier usuario (solo admin)
    * PUT /api/v1/users/:id
-   *
-   * TODO: FASE 2 - Agregar guards de admin
+   * 
+   * Protección: Solo usuarios con rol ADMIN
    */
   @Put(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
   async update(
     @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,
@@ -107,11 +123,13 @@ export class UsersController {
   /**
    * Eliminar usuario (soft delete)
    * DELETE /api/v1/users/:id
-   *
-   * TODO: FASE 2 - Agregar guards de admin
+   * 
+   * Protección: Solo usuarios con rol ADMIN
    */
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
   async remove(@Param('id') id: string): Promise<void> {
     return this.usersService.remove(id);
   }

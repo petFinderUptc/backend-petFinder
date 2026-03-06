@@ -46,4 +46,14 @@ export interface IUserRepository {
    * Verificar si existe un email
    */
   existsByEmail(email: string): Promise<boolean>;
+
+  /**
+   * Buscar usuario por username
+   */
+  findByUsername(username: string): Promise<User | null>;
+
+  /**
+   * Verificar si existe un username
+   */
+  existsByUsername(username: string): Promise<boolean>;
 }

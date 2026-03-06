@@ -25,6 +25,13 @@ export default () => ({
     expiresIn: process.env.JWT_EXPIRATION || '7d',
   },
 
+  // Configuración de Seguridad
+  security: {
+    // Número de rounds para bcrypt (10-12 recomendado)
+    // Cada incremento de 1 duplica el tiempo de procesamiento
+    bcryptSaltRounds: parseInt(process.env.BCRYPT_SALT_ROUNDS, 10) || 12,
+  },
+
   // Configuración CORS
   cors: {
     origins: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:4200'],

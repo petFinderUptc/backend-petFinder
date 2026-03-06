@@ -1,21 +1,27 @@
 /**
  * Decorador para especificar roles permitidos en un endpoint
  *
+ * Debe usarse junto con JwtAuthGuard y RolesGuard.
+ *
  * Uso:
- * @Post()
+ * @Delete(':id')
  * @UseGuards(JwtAuthGuard, RolesGuard)
  * @Roles(UserRole.ADMIN)
  * deleteUser(@Param('id') id: string) {
- *   ...
+ *   return this.usersService.remove(id);
  * }
  *
- * TODO: FASE 2 - Implementar junto con RolesGuard
+ * Múltiples roles (OR - con que tenga uno es suficiente):
+ * @Get('admin-or-moderator')
+ * @UseGuards(JwtAuthGuard, RolesGuard)
+ * @Roles(UserRole.ADMIN, UserRole.MODERATOR)
+ * getData() {
+ *   return 'Solo admins o moderadores';
+ * }
  */
 
-// import { SetMetadata } from '@nestjs/common';
-// import { UserRole } from '../../modules/users/interfaces/user.interface';
-//
-// export const ROLES_KEY = 'roles';
-// export const Roles = (...roles: UserRole[]) => SetMetadata(ROLES_KEY, roles);
+import { SetMetadata } from '@nestjs/common';
+import { UserRole } from '../../domain/enums';
 
-export {};
+export const ROLES_KEY = 'roles';
+export const Roles = (...roles: UserRole[]) => SetMetadata(ROLES_KEY, roles);

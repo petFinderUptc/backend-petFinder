@@ -10,18 +10,19 @@
  * en lugar de acceso directo a datos.
  */
 
-import { Injectable, NotFoundException, ConflictException, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, Inject, BadRequestException } from '@nestjs/common';
 import { CreateUserDto, UpdateUserDto, UserResponseDto } from '../dtos/users';
 import { IUserRepository } from '../../domain/repositories';
 import { User } from '../../domain/entities';
 import { UserRole } from '../../domain/enums';
-import * as bcrypt from 'bcrypt';
+import { PasswordHashService } from './password-hash.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     @Inject('IUserRepository')
     private readonly userRepository: IUserRepository,
+    private readonly passwordHashService: PasswordHashService,
   ) {}
 
   /**
@@ -31,11 +32,17 @@ export class UsersService {
     // Verificar si el email ya existe
     const existingUser = await this.userRepository.findByEmail(createUserDto.email);
     if (existingUser) {
-      throw new ConflictException('El email ya está registrado');
+      throw new BadRequestException('El email ya está registrado');
     }
 
-    // Hash de la contraseña
-    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+    // Verificar si el username ya existe
+    const existingUsername = await this.userRepository.findByUsername(createUserDto.username);
+    if (existingUsername) {
+      throw new BadRequestException('El username ya está en uso');
+    }
+
+    // Hash de la contraseña usando el servicio dedicado
+    const hashedPassword = await this.passwordHashService.hash(createUserDto.password);
 
     // Crear entidad de dominio
     const user = new User(
@@ -132,12 +139,15 @@ export class UsersService {
     return new UserResponseDto({
       id: user.id,
       email: user.email,
+      username: user.username,
       firstName: user.firstName,
       lastName: user.lastName,
       phoneNumber: user.phoneNumber,
       profileImage: user.profileImage,
       role: user.role,
       isActive: user.isActive,
+      emailVerified: user.emailVerified || false,
+      phoneVerified: user.phoneVerified || false,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     });

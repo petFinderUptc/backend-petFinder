@@ -19,13 +19,14 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from './users.service';
 import { RegisterDto, LoginDto, AuthResponseDto } from '../dtos/auth';
-import * as bcrypt from 'bcrypt';
+import { PasswordHashService } from './password-hash.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
+    private readonly passwordHashService: PasswordHashService,
   ) {}
 
   /**
@@ -43,6 +44,7 @@ export class AuthService {
       user: {
         id: user.id,
         email: user.email,
+        username: user.username,
         firstName: user.firstName,
         lastName: user.lastName,
       },
@@ -59,8 +61,8 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    // Verificar contraseña
-    const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
+    // Verificar contraseña usando el servicio dedicado
+    const isPasswordValid = await this.passwordHashService.compare(loginDto.password, user.password);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
@@ -78,6 +80,7 @@ export class AuthService {
       user: {
         id: user.id,
         email: user.email,
+        username: user.username,
         firstName: user.firstName,
         lastName: user.lastName,
       },

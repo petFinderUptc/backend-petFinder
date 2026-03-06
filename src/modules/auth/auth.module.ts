@@ -3,11 +3,16 @@
  *
  * Configura JWT y passport para autenticación.
  *
+ * Componentes implementados:
+ * - JwtModule: Generación y validación de tokens JWT
+ * - JwtStrategy: Estrategia de validación de tokens
+ * - AuthService: Lógica de negocio de autenticación
+ * - AuthController: Endpoints de autenticación
+ *
  * FASE 2: Implementar
- * - JwtStrategy para validación de tokens
  * - LocalStrategy para login con usuario/contraseña
- * - Guards personalizados (JwtAuthGuard, RolesGuard)
- * - Decorators personalizados (@CurrentUser, @Roles)
+ * - Refresh tokens
+ * - 2FA (autenticación de dos factores)
  */
 
 import { Module } from '@nestjs/common';
@@ -17,6 +22,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from '../../presentation/controllers';
 import { AuthService } from '../../application/services';
 import { UsersModule } from '../users/users.module';
+import { JwtStrategy } from '../../presentation/strategies/jwt.strategy';
 
 @Module({
   imports: [
@@ -37,10 +43,11 @@ import { UsersModule } from '../users/users.module';
   controllers: [AuthController],
   providers: [
     AuthService,
-    // TODO: FASE 2 - Agregar strategies
-    // JwtStrategy,
+    JwtStrategy, // ✅ Registrar JwtStrategy
+    // PasswordHashService se importa automáticamente desde UsersModule
+    // TODO: FASE 2 - Agregar strategies adicionales
     // LocalStrategy,
   ],
-  exports: [AuthService, JwtModule],
+  exports: [AuthService, JwtModule, PassportModule],
 })
 export class AuthModule {}
