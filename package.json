@@ -22,6 +22,7 @@
     "test:health": "node scripts/test-health-endpoints.js",
     "test:users-crud": "node scripts/test-users-crud.js",
     "check:users-container": "node scripts/check-users-container.js",
+    "cleanup:test-users": "node scripts/cleanup-test-users.js",
     "prepare": "husky"
   },
   "dependencies": {

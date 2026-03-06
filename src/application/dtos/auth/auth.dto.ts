@@ -4,7 +4,7 @@
  * Capa de Aplicación - Define contratos de entrada/salida
  */
 
-import { IsEmail, IsString, MinLength, MaxLength } from 'class-validator';
+import { IsEmail, IsString, MinLength, MaxLength, Matches } from 'class-validator';
 
 /**
  * DTO para registro de usuario
@@ -12,6 +12,12 @@ import { IsEmail, IsString, MinLength, MaxLength } from 'class-validator';
 export class RegisterDto {
   @IsEmail({}, { message: 'Email debe ser válido' })
   email: string;
+
+  @IsString()
+  @Matches(/^[a-zA-Z0-9_-]{3,20}$/, {
+    message: 'Username debe tener entre 3-20 caracteres alfanuméricos, guiones o guiones bajos',
+  })
+  username: string;
 
   @IsString()
   @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres' })

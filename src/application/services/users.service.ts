@@ -41,6 +41,7 @@ export class UsersService {
     const user = new User(
       '', // El ID será generado por el repositorio
       createUserDto.email,
+      createUserDto.username,
       hashedPassword,
       createUserDto.firstName,
       createUserDto.lastName,

@@ -11,6 +11,7 @@ import {
   MaxLength,
   IsOptional,
   IsPhoneNumber,
+  Matches,
 } from 'class-validator';
 import { UserRole } from '../../../domain/enums';
 
@@ -20,6 +21,12 @@ import { UserRole } from '../../../domain/enums';
 export class CreateUserDto {
   @IsEmail({}, { message: 'Email debe ser válido' })
   email: string;
+
+  @IsString()
+  @Matches(/^[a-zA-Z0-9_-]{3,20}$/, {
+    message: 'Username debe tener entre 3-20 caracteres alfanuméricos, guiones o guiones bajos',
+  })
+  username: string;
 
   @IsString()
   @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres' })
@@ -43,6 +50,21 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   profileImage?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  city?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  department?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500, { message: 'La biografía no puede exceder 500 caracteres' })
+  bio?: string;
 }
 
 /**
@@ -69,6 +91,21 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   profileImage?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  city?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  department?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  bio?: string;
 }
 
 /**
@@ -78,12 +115,21 @@ export class UpdateUserDto {
 export class UserResponseDto {
   id: string;
   email: string;
+  username: string;
   firstName: string;
   lastName: string;
+  fullName?: string;
   phoneNumber?: string;
   profileImage?: string;
+  city?: string;
+  department?: string;
+  fullLocation?: string;
+  bio?: string;
   role: UserRole;
   isActive: boolean;
+  emailVerified: boolean;
+  phoneVerified: boolean;
+  lastLogin?: Date;
   createdAt: Date;
   updatedAt: Date;
 

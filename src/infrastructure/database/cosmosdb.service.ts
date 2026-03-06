@@ -84,12 +84,22 @@ export class CosmosDbService implements OnModuleInit {
    * @private
    */
   private async initializeContainers(): Promise<void> {
-    // Container de Users con partition key optimizado y política de índices
+    // Container de Users con partition key optimizado, índices únicos y política de índices
     const { container: users } = await this.database.containers.createIfNotExists({
       id: 'users',
       partitionKey: {
         paths: ['/email'],
         version: 2,
+      },
+      uniqueKeyPolicy: {
+        uniqueKeys: [
+          {
+            paths: ['/username'], // Garantiza usernames únicos en toda la database
+          },
+          {
+            paths: ['/email'], // Refuerza unicidad del partition key
+          },
+        ],
       },
       indexingPolicy: {
         indexingMode: 'consistent',
@@ -124,7 +134,7 @@ export class CosmosDbService implements OnModuleInit {
       },
     });
     this.usersContainer = users;
-    this.logger.log('Container "users" ready with optimized indexing policy');
+    this.logger.log('Container "users" ready with unique keys and optimized indexing policy');
 
     // Container de Posts
     const { container: posts } = await this.database.containers.createIfNotExists({

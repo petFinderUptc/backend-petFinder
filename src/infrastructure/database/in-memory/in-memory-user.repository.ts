@@ -20,6 +20,7 @@ export class InMemoryUserRepository implements IUserRepository {
     const newUser = new User(
       this.generateId(),
       user.email,
+      user.username,
       user.password,
       user.firstName,
       user.lastName,
