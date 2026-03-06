@@ -23,6 +23,9 @@ import { configuration } from './infrastructure/config';
 // Controladores raíz
 import { AppController } from './app.controller';
 
+// Módulos de infraestructura
+import { DatabaseModule } from './infrastructure/database';
+
 // Módulos de negocio
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
@@ -37,13 +40,13 @@ import { PostsModule } from './modules/posts/posts.module';
       envFilePath: '.env',
     }),
 
+    // Módulo de base de datos (Global)
+    DatabaseModule,
+
     // Módulos de funcionalidad
     AuthModule,
     UsersModule,
     PostsModule,
-
-    // TODO: FASE 2 - Agregar módulo de base de datos
-    // DatabaseModule,
 
     // TODO: FASE 3 - Agregar módulos adicionales
     // NotificationsModule,

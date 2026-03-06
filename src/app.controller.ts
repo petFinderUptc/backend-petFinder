@@ -7,10 +7,14 @@
 
 import { Controller, Get } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { CosmosDbService } from './infrastructure/database';
 
 @Controller()
 export class AppController {
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly cosmosDbService: CosmosDbService,
+  ) {}
 
   /**
    * Health check endpoint
@@ -90,5 +94,36 @@ export class AppController {
       ],
       team: 'PetFinder Team - UPTC',
     };
+  }
+
+  /**
+   * Database health check endpoint
+   * Verifica la conexión con Azure Cosmos DB
+   *
+   * @returns Estado de la conexión a la base de datos
+   */
+  @Get('db-health')
+  async getDatabaseHealth() {
+    try {
+      const isConnected = await this.cosmosDbService.isConnected();
+      const stats = await this.cosmosDbService.getDatabaseStats();
+
+      return {
+        status: isConnected ? 'connected' : 'disconnected',
+        database: stats.id,
+        timestamp: new Date().toISOString(),
+        details: {
+          resourceId: stats._rid,
+          lastModified: new Date(stats._ts * 1000).toISOString(),
+          etag: stats._etag,
+        },
+      };
+    } catch (error) {
+      return {
+        status: 'error',
+        message: error.message,
+        timestamp: new Date().toISOString(),
+      };
+    }
   }
 }

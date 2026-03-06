@@ -38,12 +38,12 @@ export default () => ({
     limit: parseInt(process.env.THROTTLE_LIMIT, 10) || 10,
   },
 
-  // TODO: FASE 2 - Configuración Azure Cosmos DB
-  // cosmosDb: {
-  //   endpoint: process.env.COSMOS_ENDPOINT,
-  //   key: process.env.COSMOS_KEY,
-  //   database: process.env.COSMOS_DATABASE,
-  // },
+  // Configuración Azure Cosmos DB
+  cosmosDb: {
+    endpoint: process.env.COSMOS_DB_ENDPOINT,
+    key: process.env.COSMOS_DB_KEY,
+    database: process.env.COSMOS_DB_DATABASE || 'petfinder',
+  },
 
   // TODO: FASE 2 - Configuración Azure Blob Storage
   // azureStorage: {
