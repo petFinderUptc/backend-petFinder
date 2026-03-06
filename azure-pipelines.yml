@@ -207,7 +207,7 @@ stages:
             displayName: '⏸️ Manual Approval Required'
             inputs:
               notifyUsers: |
-                tu-email@example.com
+                juzaor2003@gmail.com
               instructions: 'Por favor revisa los cambios antes de aprobar el deployment a producción. Verifica que los tests pasaron y que el build es exitoso.'
               onTimeout: 'reject'
 
