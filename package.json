@@ -20,6 +20,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "test:cosmosdb": "node scripts/test-cosmosdb-connection.js",
     "test:health": "node scripts/test-health-endpoints.js",
+    "test:users-crud": "node scripts/test-users-crud.js",
+    "check:users-container": "node scripts/check-users-container.js",
     "prepare": "husky"
   },
   "dependencies": {

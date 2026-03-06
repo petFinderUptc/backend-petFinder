@@ -84,13 +84,47 @@ export class CosmosDbService implements OnModuleInit {
    * @private
    */
   private async initializeContainers(): Promise<void> {
-    // Container de Users
+    // Container de Users con partition key optimizado y política de índices
     const { container: users } = await this.database.containers.createIfNotExists({
       id: 'users',
-      partitionKey: { paths: ['/id'] },
+      partitionKey: {
+        paths: ['/email'],
+        version: 2,
+      },
+      indexingPolicy: {
+        indexingMode: 'consistent',
+        automatic: true,
+        includedPaths: [
+          {
+            path: '/*', // Indexar todos los campos por defecto
+          },
+        ],
+        excludedPaths: [
+          {
+            path: '/"_etag"/?', // Excluir _etag del índice (no se consulta)
+          },
+        ],
+        compositeIndexes: [
+          // Índice compuesto para consultas por username y fecha de creación
+          [
+            { path: '/username', order: 'ascending' },
+            { path: '/createdAt', order: 'descending' },
+          ],
+          // Índice compuesto para consultas por role y fecha de creación
+          [
+            { path: '/role', order: 'ascending' },
+            { path: '/createdAt', order: 'descending' },
+          ],
+          // Índice compuesto para consultas por status activo y fecha
+          [
+            { path: '/isActive', order: 'ascending' },
+            { path: '/updatedAt', order: 'descending' },
+          ],
+        ],
+      },
     });
     this.usersContainer = users;
-    this.logger.log('Container "users" ready');
+    this.logger.log('Container "users" ready with optimized indexing policy');
 
     // Container de Posts
     const { container: posts } = await this.database.containers.createIfNotExists({

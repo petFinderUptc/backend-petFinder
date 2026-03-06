@@ -4,6 +4,16 @@
 
 Este documento describe el módulo de conexión a Azure Cosmos DB implementado en NestJS.
 
+## 🔑 Configuración de Contenedores
+
+### Contenedor: **users**
+- **Partition Key**: `/email` (optimizado para distribución uniforme)
+- **Política de Índices**: Configurada con índices compuestos
+- **Documentación detallada**: Ver [INDEXING-POLICY.md](./INDEXING-POLICY.md)
+
+### Contenedor: **posts**  
+- **Partition Key**: `/id`
+
 ---
 
 ## 📦 Archivos Creados
@@ -144,14 +154,17 @@ export class CosmosUserRepository implements IUserRepository {
     
     const userDoc = {
       id: user.id,
-      email: user.email,
+      email: user.email, // Partition key
       name: user.name,
+      username: user.username,
       password: user.password,
       role: user.role,
+      isActive: true,
       createdAt: user.createdAt.toISOString(),
       updatedAt: user.updatedAt.toISOString(),
     };
 
+    // El email es el partition key
     const { resource } = await container.items.create(userDoc);
     
     return this.mapToEntity(resource);
@@ -160,20 +173,22 @@ export class CosmosUserRepository implements IUserRepository {
   async findById(id: string): Promise<User | null> {
     const container = this.cosmosDbService.getUsersContainer();
     
-    try {
-      const { resource } = await container.item(id, id).read();
-      return this.mapToEntity(resource);
-    } catch (error) {
-      if (error.code === 404) {
-        return null;
-      }
-      throw error;
-    }
+    // Como el partition key es /email, necesitamos una query
+    const query = 'SELECT * FROM c WHERE c.id = @id';
+    const { resources } = await container.items
+      .query({
+        query,
+        parameters: [{ name: '@id', value: id }],
+      })
+      .fetchAll();
+
+    return resources.length > 0 ? this.mapToEntity(resources[0]) : null;
   }
 
   async findByEmail(email: string): Promise<User | null> {
     const container = this.cosmosDbService.getUsersContainer();
     
+    // Optimizado: usar query con partition key para lectura eficiente
     const query = 'SELECT * FROM c WHERE c.email = @email';
     const { resources } = await container.items
       .query({
@@ -185,35 +200,76 @@ export class CosmosUserRepository implements IUserRepository {
     return resources.length > 0 ? this.mapToEntity(resources[0]) : null;
   }
 
-  async findAll(): Promise<User[]> {
+  async findByUsername(username: string): Promise<User | null> {
     const container = this.cosmosDbService.getUsersContainer();
     
+    // Aprovecha índice compuesto username + createdAt
+    const query = `
+      SELECT * FROM c 
+      WHERE c.username = @username
+      ORDER BY c.createdAt DESC
+    `;
     const { resources } = await container.items
-      .query('SELECT * FROM c')
+      .query({
+        query,
+        parameters: [{ name: '@username', value: username }],
+      })
+      .fetchAll();
+
+    return resources.length > 0 ? this.mapToEntity(resources[0]) : null;
+  }
+
+  async findByRole(role: string): Promise<User[]> {
+    const container = this.cosmosDbService.getUsersContainer();
+    
+    // Aprovecha índice compuesto role + createdAt
+    const query = `
+      SELECT * FROM c 
+      WHERE c.role = @role
+      ORDER BY c.createdAt DESC
+    `;
+    const { resources } = await container.items
+      .query({
+        query,
+        parameters: [{ name: '@role', value: role }],
+      })
       .fetchAll();
 
     return resources.map((doc) => this.mapToEntity(doc));
   }
 
-  async update(id: string, user: Partial<User>): Promise<User> {
+  async findAll(): Promise<User[]> {
     const container = this.cosmosDbService.getUsersContainer();
     
-    const { resource: existing } = await container.item(id, id).read();
+    const { resources } = await container.items
+      .query('SELECT * FROM c ORDER BY c.createdAt DESC')
+      .fetchAll();
+
+    return resources.map((doc) => this.mapToEntity(doc));
+  }
+
+  async update(id: string, email: string, userData: Partial<User>): Promise<User> {
+    const container = this.cosmosDbService.getUsersContainer();
+    
+    // Necesitamos el email (partition key) para operaciones item directas
+    const { resource: existing } = await container.item(id, email).read();
     
     const updated = {
       ...existing,
-      ...user,
+      ...userData,
       updatedAt: new Date().toISOString(),
     };
 
-    const { resource } = await container.item(id, id).replace(updated);
+    const { resource } = await container.item(id, email).replace(updated);
     
     return this.mapToEntity(resource);
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string, email: string): Promise<void> {
     const container = this.cosmosDbService.getUsersContainer();
-    await container.item(id, id).delete();
+    
+    // Necesitamos el email (partition key) para eliminar
+    await container.item(id, email).delete();
   }
 
   private mapToEntity(doc: any): User {
@@ -221,14 +277,31 @@ export class CosmosUserRepository implements IUserRepository {
       doc.id,
       doc.email,
       doc.name,
+      doc.username,
       doc.password,
       doc.role,
+      doc.isActive,
       new Date(doc.createdAt),
       new Date(doc.updatedAt),
     );
   }
 }
 ```
+
+**⚠️ Nota Importante sobre Partition Key:**
+
+El contenedor `users` usa `/email` como partition key, lo que significa:
+
+- ✅ **Búsquedas por email son extremadamente eficientes** (single-partition query)
+- ✅ **Distribución uniforme** de datos (cada email es único)
+- ⚠️ **Operaciones directas** (read, replace, delete) **requieren el email** además del ID
+- ⚠️ **Búsquedas por ID requieren query** (cross-partition) si no se conoce el email
+
+**Mejores Prácticas:**
+1. Siempre que sea posible, usa el email para operaciones CRUD
+2. Para `update` y `delete`, pasa tanto el `id` como el `email`
+3. Aprovecha los índices compuestos para queries frecuentes (username, role, isActive)
+4. Ver [INDEXING-POLICY.md](./INDEXING-POLICY.md) para detalles sobre optimización
 
 ---
 
