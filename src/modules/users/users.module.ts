@@ -1,10 +1,3 @@
-/**
- * Módulo de Usuarios
- *
- * Módulo de NestJS que orquesta las dependencias del contexto de usuarios.
- * Conecta Controllers (Presentación) → Services (Aplicación) → Repositories (Infraestructura)
- */
-
 import { Module } from '@nestjs/common';
 import { UsersController } from '../../presentation/controllers';
 import { UsersService, PasswordHashService } from '../../application/services';

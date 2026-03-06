@@ -1,11 +1,3 @@
-/**
- * Implementación In-Memory del UserRepository
- *
- * Capa de Infraestructura - Implementación concreta del repositorio
- * Esta implementación almacena datos en memoria (temporal para desarrollo)
- *
- * FASE 2: Crear implementación con Cosmos DB
- */
 
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { IUserRepository } from '../../../domain/repositories';

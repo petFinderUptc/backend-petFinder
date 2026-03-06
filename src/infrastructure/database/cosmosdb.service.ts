@@ -2,43 +2,20 @@ import { CosmosClient, Database, Container } from '@azure/cosmos';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-/**
- * Servicio de Conexión a Azure Cosmos DB
- *
- * Capa de Infraestructura - Database Connection Service
- *
- * Responsabilidades:
- * - Establecer y mantener la conexión con Azure Cosmos DB
- * - Proporcionar acceso a la database y containers
- * - Manejar la inicialización y verificación de recursos
- * - Logging de operaciones de conexión
- *
- * @injectable
- */
 @Injectable()
 export class CosmosDbService implements OnModuleInit {
   private readonly logger = new Logger(CosmosDbService.name);
   private client: CosmosClient;
   private database: Database;
-
-  // Containers disponibles
   private usersContainer: Container;
   private postsContainer: Container;
 
   constructor(private configService: ConfigService) {}
 
-  /**
-   * Inicialización del módulo
-   * Se ejecuta automáticamente cuando el módulo se carga
-   */
   async onModuleInit() {
     await this.connect();
   }
 
-  /**
-   * Establece la conexión con Azure Cosmos DB
-   * @private
-   */
   private async connect(): Promise<void> {
     try {
       const endpoint = this.configService.get<string>('cosmosDb.endpoint');
@@ -53,23 +30,19 @@ export class CosmosDbService implements OnModuleInit {
 
       this.logger.log('Connecting to Azure Cosmos DB...');
 
-      // Crear cliente de Cosmos DB
       this.client = new CosmosClient({ endpoint, key });
 
-      // Verificar conexión obteniendo información de la cuenta
       const { resource: account } = await this.client.getDatabaseAccount();
       this.logger.log(
         `Connected to Cosmos DB account in region: ${account.writableLocations[0]?.name || 'Unknown'}`,
       );
 
-      // Obtener referencia a la database
       const { database } = await this.client.databases.createIfNotExists({
         id: databaseId,
       });
       this.database = database;
       this.logger.log(`Database "${databaseId}" ready`);
 
-      // Inicializar containers
       await this.initializeContainers();
 
       this.logger.log('✅ Cosmos DB connection established successfully');
@@ -79,12 +52,7 @@ export class CosmosDbService implements OnModuleInit {
     }
   }
 
-  /**
-   * Inicializa los containers necesarios
-   * @private
-   */
   private async initializeContainers(): Promise<void> {
-    // Container de Users con partition key optimizado, índices únicos y política de índices
     const { container: users } = await this.database.containers.createIfNotExists({
       id: 'users',
       partitionKey: {
@@ -93,39 +61,24 @@ export class CosmosDbService implements OnModuleInit {
       },
       uniqueKeyPolicy: {
         uniqueKeys: [
-          {
-            paths: ['/username'], // Garantiza usernames únicos en toda la database
-          },
-          {
-            paths: ['/email'], // Refuerza unicidad del partition key
-          },
+          { paths: ['/username'] },
+          { paths: ['/email'] },
         ],
       },
       indexingPolicy: {
         indexingMode: 'consistent',
         automatic: true,
-        includedPaths: [
-          {
-            path: '/*', // Indexar todos los campos por defecto
-          },
-        ],
-        excludedPaths: [
-          {
-            path: '/"_etag"/?', // Excluir _etag del índice (no se consulta)
-          },
-        ],
+        includedPaths: [{ path: '/*' }],
+        excludedPaths: [{ path: '/"_etag"/?' }],
         compositeIndexes: [
-          // Índice compuesto para consultas por username y fecha de creación
           [
             { path: '/username', order: 'ascending' },
             { path: '/createdAt', order: 'descending' },
           ],
-          // Índice compuesto para consultas por role y fecha de creación
           [
             { path: '/role', order: 'ascending' },
             { path: '/createdAt', order: 'descending' },
           ],
-          // Índice compuesto para consultas por status activo y fecha
           [
             { path: '/isActive', order: 'ascending' },
             { path: '/updatedAt', order: 'descending' },
@@ -136,7 +89,6 @@ export class CosmosDbService implements OnModuleInit {
     this.usersContainer = users;
     this.logger.log('Container "users" ready with unique keys and optimized indexing policy');
 
-    // Container de Posts
     const { container: posts } = await this.database.containers.createIfNotExists({
       id: 'posts',
       partitionKey: { paths: ['/id'] },
@@ -145,10 +97,6 @@ export class CosmosDbService implements OnModuleInit {
     this.logger.log('Container "posts" ready');
   }
 
-  /**
-   * Obtiene el cliente de Cosmos DB
-   * @returns {CosmosClient} Cliente de Cosmos DB
-   */
   getClient(): CosmosClient {
     if (!this.client) {
       throw new Error('Cosmos DB client not initialized');
@@ -156,10 +104,6 @@ export class CosmosDbService implements OnModuleInit {
     return this.client;
   }
 
-  /**
-   * Obtiene la database
-   * @returns {Database} Instancia de la database
-   */
   getDatabase(): Database {
     if (!this.database) {
       throw new Error('Cosmos DB database not initialized');
@@ -167,10 +111,6 @@ export class CosmosDbService implements OnModuleInit {
     return this.database;
   }
 
-  /**
-   * Obtiene el container de Users
-   * @returns {Container} Container de usuarios
-   */
   getUsersContainer(): Container {
     if (!this.usersContainer) {
       throw new Error('Users container not initialized');
@@ -178,10 +118,6 @@ export class CosmosDbService implements OnModuleInit {
     return this.usersContainer;
   }
 
-  /**
-   * Obtiene el container de Posts
-   * @returns {Container} Container de posts
-   */
   getPostsContainer(): Container {
     if (!this.postsContainer) {
       throw new Error('Posts container not initialized');
@@ -189,11 +125,6 @@ export class CosmosDbService implements OnModuleInit {
     return this.postsContainer;
   }
 
-  /**
-   * Obtiene un container específico por nombre
-   * @param {string} containerId - ID del container
-   * @returns {Container} Container solicitado
-   */
   getContainer(containerId: string): Container {
     if (!this.database) {
       throw new Error('Cosmos DB database not initialized');
@@ -201,10 +132,6 @@ export class CosmosDbService implements OnModuleInit {
     return this.database.container(containerId);
   }
 
-  /**
-   * Verifica el estado de la conexión
-   * @returns {Promise<boolean>} True si la conexión está activa
-   */
   async isConnected(): Promise<boolean> {
     try {
       if (!this.client) {
@@ -218,10 +145,6 @@ export class CosmosDbService implements OnModuleInit {
     }
   }
 
-  /**
-   * Obtiene estadísticas de uso (útil para monitoreo)
-   * @returns {Promise<any>} Estadísticas de la database
-   */
   async getDatabaseStats(): Promise<any> {
     try {
       const { resource: dbInfo } = await this.database.read();

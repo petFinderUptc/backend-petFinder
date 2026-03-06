@@ -1,20 +1,3 @@
-/**
- * Servicio de Autenticación
- *
- * Capa de Aplicación - Casos de uso relacionados con autenticación
- *
- * Maneja toda la lógica de autenticación:
- * - Registro de usuarios
- * - Login con validación de credenciales
- * - Generación de tokens JWT
- *
- * FASE 2: Implementar
- * - Refresh tokens
- * - Password reset
- * - Email verification
- * - 2FA (autenticación de dos factores)
- */
-
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from './users.service';
@@ -29,14 +12,8 @@ export class AuthService {
     private readonly passwordHashService: PasswordHashService,
   ) {}
 
-  /**
-   * Registrar un nuevo usuario
-   */
   async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
-    // Crear usuario usando el servicio de usuarios
     const user = await this.usersService.create(registerDto);
-
-    // Generar token JWT
     const accessToken = this.generateToken(user.id, user.email);
 
     return new AuthResponseDto({
@@ -51,28 +28,21 @@ export class AuthService {
     });
   }
 
-  /**
-   * Login de usuario
-   */
   async login(loginDto: LoginDto): Promise<AuthResponseDto> {
-    // Buscar usuario por email
     const user = await this.usersService.findByEmail(loginDto.email);
     if (!user) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    // Verificar contraseña usando el servicio dedicado
     const isPasswordValid = await this.passwordHashService.compare(loginDto.password, user.password);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    // Verificar que el usuario esté activo
     if (!user.isActive) {
       throw new UnauthorizedException('Usuario inactivo');
     }
 
-    // Generar token JWT
     const accessToken = this.generateToken(user.id, user.email);
 
     return new AuthResponseDto({
@@ -87,10 +57,6 @@ export class AuthService {
     });
   }
 
-  /**
-   * Validar token JWT
-   * TODO: FASE 2 - Implementar validación completa con estrategia JWT
-   */
   async validateToken(token: string): Promise<any> {
     try {
       return this.jwtService.verify(token);
@@ -99,9 +65,6 @@ export class AuthService {
     }
   }
 
-  /**
-   * Generar token JWT
-   */
   private generateToken(userId: string, email: string): string {
     const payload = {
       sub: userId,
@@ -110,10 +73,4 @@ export class AuthService {
 
     return this.jwtService.sign(payload);
   }
-
-  // TODO: FASE 2 - Implementar métodos adicionales
-  // async refreshToken(refreshToken: string): Promise<AuthResponseDto>
-  // async forgotPassword(email: string): Promise<void>
-  // async resetPassword(token: string, newPassword: string): Promise<void>
-  // async verifyEmail(token: string): Promise<void>
 }
