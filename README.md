@@ -46,7 +46,7 @@ HTTP Request → Controller → Service → Repository Interface → Repository 
 - **Validación**: class-validator, class-transformer
 - **Calidad de Código**: ESLint, Prettier, Husky, lint-staged
 - **Testing**: Jest (unitarios y E2E)
-- **CI/CD**: Azure DevOps *(preparado)*
+- **CI/CD**: GitHub Actions (funcional), Azure DevOps (preparado)
 
 ## ✨ Características Principales
 
@@ -579,7 +579,7 @@ El proyecto está diseñado para despliegue en **Azure** con:
 - **Azure Cosmos DB**: Base de datos NoSQL
 - **Azure Blob Storage**: Almacenamiento de imágenes
 - **Azure Application Insights**: Monitoreo y logging
-- **Azure DevOps**: CI/CD pipeline
+- **CI/CD**: GitHub Actions (funcional) o Azure DevOps (requiere setup)
 
 ### Variables de Entorno
 
@@ -605,39 +605,54 @@ AZURE_STORAGE_CONNECTION_STRING=tu_connection_string
 AZURE_STORAGE_CONTAINER=pet-images
 ```
 
-### Pipeline CI/CD (Azure DevOps)
+### Pipeline CI/CD
 
-El proyecto incluye un pipeline completo de CI/CD automatizado para Azure DevOps:
+El proyecto incluye **múltiples opciones** para CI/CD automatizado:
 
-#### 📋 Archivos del Pipeline
+#### 🎯 Opciones Disponibles
 
-- **`azure-pipelines.yml`**: Pipeline principal con 4 stages
+| Opción | Archivo | Estado | Recomendación |
+|--------|---------|--------|---------------|
+| **GitHub Actions** ✅ | `.github/workflows/ci-cd.yml` | Funcional inmediatamente | 🥇 **Recomendado** |
+| **Azure DevOps** ⏳ | `azure-pipelines.yml` | Requiere paralelismo | Solicitar en [aka.ms/azpipelines-parallelism-request](https://aka.ms/azpipelines-parallelism-request) |
+| **Self-Hosted Agent** 🖥️ | `azure-pipelines.yml` | Requiere setup | Computadora debe estar encendida |
+
+#### ⭐ GitHub Actions (Recomendado)
+
+**Ventajas:**
+- ✅ Gratis y sin aprobaciones
+- ✅ Funciona inmediatamente
+- ✅ Integración nativa con GitHub
+- ✅ Environments con aprobaciones manuales
+
+**Archivos:**
+- **`.github/workflows/ci-cd.yml`**: Workflow completo con 4 jobs
 - **`Dockerfile`**: Containerización para Azure App Service
 - **`.dockerignore`**: Optimización de builds de Docker
-- **`scripts/`**: Scripts de deployment manual
 
-#### 🔄 Flujo del Pipeline
+📖 **Ver guía**: [GitHub Actions Setup](docs/GITHUB-ACTIONS-SETUP.md)
 
-**Stage 1: Build & Test**
-- ✅ Instalación de dependencias (npm ci)
-- ✅ Lint con ESLint
-- ✅ Verificación de formato (Prettier)
-- ✅ Build de TypeScript
-- ✅ Tests unitarios con coverage
-- ✅ Publicación de resultados y artifacts
+#### 🔄 Flujo del Pipeline (Ambas opciones)
 
-**Stage 2: Deploy to Staging** (rama `develop`)
-- ✅ Deploy automático a Azure App Service (staging slot)
-- ✅ Health check post-deployment
+**Job/Stage 1: Build & Test** ✅ 
+- Instalación de dependencias (npm ci)
+- Lint con ESLint
+- Build de TypeScript
+- Tests unitarios con coverage
+- Publicación de artifacts
 
-**Stage 3: Deploy to Production** (rama `main`)
-- ✅ Requiere aprobación manual
-- ✅ Deploy a Azure App Service (production)
-- ✅ Health check post-deployment
+**Job/Stage 2: Deploy to Staging** (rama `develop`)
+- Deploy automático a Azure App Service (staging slot)
+- Health check post-deployment
 
-**Stage 4: Post-Deployment Tests**
-- ✅ Smoke tests en producción
-- ✅ Verificación de endpoints críticos
+**Job/Stage 3: Deploy to Production** (rama `main`)
+- Requiere aprobación manual
+- Deploy a Azure App Service (production)
+- Health check post-deployment
+
+**Job/Stage 4: Post-Deployment Tests**
+- Smoke tests en producción
+- Verificación de endpoints críticos
 
 #### 🚀 Triggers
 
@@ -651,16 +666,23 @@ feature/* → Build & Test only
 PR a main/develop → Build & Test validation
 ```
 
-#### 📖 Configuración Completa
+#### 📖 Guías de Configuración
 
-Ver guía detallada: [Configuración de Azure DevOps](docs/AZURE-DEVOPS-SETUP.md)
+- 🟢 **[GitHub Actions Setup](docs/GITHUB-ACTIONS-SETUP.md)** ← Empieza aquí
+- 🔵 [Azure DevOps CI/CD](docs/AZURE-DEVOPS-SETUP.md)
+- 🟡 [Self-Hosted Agent (Azure DevOps)](docs/AZURE-SELFHOSTED-AGENT.md)
 
-**Pasos principales:**
-1. Crear recursos en Azure (App Service, Resource Group)
-2. Configurar Service Connection en Azure DevOps
-3. Crear Environments (staging, production)
-4. Configurar variables y secrets
-5. Conectar repositorio y ejecutar pipeline
+#### ⚠️ Nota sobre Azure DevOps Parallelism
+
+Azure DevOps requiere una **concesión de paralelismo** para usar Microsoft-hosted agents. Las organizaciones nuevas deben solicitarlo:
+
+1. Llenar formulario: https://aka.ms/azpipelines-parallelism-request
+2. Esperar aprobación: 2-3 días hábiles
+3. Mientras tanto, usar **GitHub Actions** o **Self-Hosted Agent**
+
+**Estado actual del pipeline Azure DevOps:**
+- ✅ Build & Test funciona con self-hosted agent
+- ⏸️ Deployment stages comentados temporalmente (requiere Service Connection)
 
 #### 🛠️ Deployment Manual
 
@@ -708,7 +730,11 @@ Para deployments de emergencia, usar scripts incluidos:
 
 - 📖 [Guía Completa de Arquitectura en Capas](docs/ARQUITECTURA-CAPAS.md)
 - 🔧 [Guía de Pre-commit Hooks](docs/PRE-COMMIT-HOOKS.md)
-- ☁️ [Configuración de Azure DevOps CI/CD](docs/AZURE-DEVOPS-SETUP.md)
+
+**CI/CD y Deployment:**
+- 🟢 [GitHub Actions Setup](docs/GITHUB-ACTIONS-SETUP.md) ← **Recomendado**
+- 🔵 [Azure DevOps CI/CD](docs/AZURE-DEVOPS-SETUP.md)
+- 🟡 [Self-Hosted Agent (Azure DevOps)](docs/AZURE-SELFHOSTED-AGENT.md)
 
 ## 🤝 Contribuir
 
