@@ -1,5 +1,5 @@
-# Azure DevOps Pipeline - PetFinder Backend (Versión Simplificada)
-# Pipeline de CI/CD sin environments (para usuarios sin permisos de administrador)
+# Azure DevOps Pipeline - PetFinder Backend
+# Pipeline de CI/CD para build, test y deploy automático del backend
 
 trigger:
   branches:
@@ -150,109 +150,96 @@ stages:
               publishLocation: 'Container'
 
   # ============================================
-  # STAGE 2: DEPLOY TO STAGING (Simplificado)
+  # STAGE 2: DEPLOY TO STAGING (Opcional)
   # ============================================
   - stage: DeployStaging
     displayName: 'Deploy to Staging'
     dependsOn: BuildAndTest
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
     jobs:
-      - job: DeployToStaging
+      - deployment: DeployToStaging
         displayName: 'Deploy to Azure App Service (Staging)'
-        steps:
-          # 1. Descargar artifacts
-          - task: DownloadBuildArtifacts@0
-            displayName: 'Download Build Artifacts'
-            inputs:
-              buildType: 'current'
-              downloadType: 'single'
-              artifactName: '$(artifactName)'
-              downloadPath: '$(System.ArtifactsDirectory)'
+        environment: 'staging'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                # 1. Descargar artifacts
+                - download: current
+                  artifact: $(artifactName)
+                  displayName: 'Download Build Artifacts'
 
-          # 2. Deploy a Azure App Service (Staging Slot)
-          - task: AzureWebApp@1
-            displayName: 'Deploy to Azure App Service (Staging)'
-            inputs:
-              azureSubscription: $(azureSubscription)
-              appType: 'webAppLinux'
-              appName: $(appServiceName)
-              deployToSlotOrASE: true
-              resourceGroupName: 'petfinder-rg' # CONFIGURAR
-              slotName: 'staging'
-              package: '$(System.ArtifactsDirectory)/$(artifactName)'
-              runtimeStack: 'NODE|20-lts'
-              startUpCommand: 'npm run start:prod'
+                # 2. Deploy a Azure App Service (Staging Slot)
+                - task: AzureWebApp@1
+                  displayName: 'Deploy to Azure App Service (Staging)'
+                  inputs:
+                    azureSubscription: $(azureSubscription)
+                    appType: 'webAppLinux'
+                    appName: $(appServiceName)
+                    deployToSlotOrASE: true
+                    resourceGroupName: 'petfinder-rg' # CONFIGURAR
+                    slotName: 'staging'
+                    package: '$(Pipeline.Workspace)/$(artifactName)'
+                    runtimeStack: 'NODE|20-lts'
+                    startUpCommand: 'npm run start:prod'
 
-          # 3. Health check del staging
-          - script: |
-              echo "Waiting for staging deployment to warm up..."
-              sleep 30
-              curl -f https://$(appServiceName)-staging.azurewebsites.net/health || exit 1
-            displayName: 'Health Check - Staging'
-            continueOnError: true
+                # 3. Health check del staging
+                - script: |
+                    echo "Waiting for staging deployment to warm up..."
+                    sleep 30
+                    curl -f https://$(appServiceName)-staging.azurewebsites.net/health || exit 1
+                  displayName: 'Health Check - Staging'
+                  continueOnError: true
 
   # ============================================
-  # STAGE 3: DEPLOY TO PRODUCTION (Simplificado)
+  # STAGE 3: DEPLOY TO PRODUCTION
   # ============================================
   - stage: DeployProduction
     displayName: 'Deploy to Production'
     dependsOn: BuildAndTest
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
     jobs:
-      - job: WaitForApproval
-        displayName: 'Wait for Manual Approval'
-        pool: server
-        steps:
-          - task: ManualValidation@0
-            displayName: '⏸️ Manual Approval Required'
-            inputs:
-              notifyUsers: |
-                sebastian.zarate@example.com
-              instructions: 'Por favor revisa los cambios antes de aprobar el deployment a producción. Verifica que los tests pasaron y que el build es exitoso.'
-              onTimeout: 'reject'
-
-      - job: DeployToProduction
+      - deployment: DeployToProduction
         displayName: 'Deploy to Azure App Service (Production)'
-        dependsOn: WaitForApproval
-        steps:
-          # 1. Descargar artifacts
-          - task: DownloadBuildArtifacts@0
-            displayName: 'Download Build Artifacts'
-            inputs:
-              buildType: 'current'
-              downloadType: 'single'
-              artifactName: '$(artifactName)'
-              downloadPath: '$(System.ArtifactsDirectory)'
+        environment: 'production' # Requiere aprobación manual (configurar en Azure DevOps)
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                # 1. Descargar artifacts
+                - download: current
+                  artifact: $(artifactName)
+                  displayName: 'Download Build Artifacts'
 
-          # 2. Deploy a Azure App Service (Production)
-          - task: AzureWebApp@1
-            displayName: 'Deploy to Azure App Service (Production)'
-            inputs:
-              azureSubscription: $(azureSubscription)
-              appType: 'webAppLinux'
-              appName: $(appServiceName)
-              package: '$(System.ArtifactsDirectory)/$(artifactName)'
-              runtimeStack: 'NODE|20-lts'
-              startUpCommand: 'npm run start:prod'
-              appSettings: |
-                -NODE_ENV production
-                -PORT 8080
+                # 2. Deploy a Azure App Service (Production)
+                - task: AzureWebApp@1
+                  displayName: 'Deploy to Azure App Service (Production)'
+                  inputs:
+                    azureSubscription: $(azureSubscription)
+                    appType: 'webAppLinux'
+                    appName: $(appServiceName)
+                    package: '$(Pipeline.Workspace)/$(artifactName)'
+                    runtimeStack: 'NODE|20-lts'
+                    startUpCommand: 'npm run start:prod'
+                    appSettings: |
+                      -NODE_ENV production
+                      -PORT 8080
 
-          # 3. Health check del production
-          - script: |
-              echo "Waiting for production deployment to warm up..."
-              sleep 30
-              curl -f https://$(appServiceName).azurewebsites.net/health || exit 1
-            displayName: 'Health Check - Production'
+                # 3. Health check del production
+                - script: |
+                    echo "Waiting for production deployment to warm up..."
+                    sleep 30
+                    curl -f https://$(appServiceName).azurewebsites.net/health || exit 1
+                  displayName: 'Health Check - Production'
 
-          # 4. Notificación de deployment exitoso
-          - script: |
-              echo "✅ Deployment to Production completed successfully!"
-              echo "🔗 URL: https://$(appServiceName).azurewebsites.net"
-            displayName: 'Deployment Success Notification'
+                # 4. Notificación de deployment exitoso
+                - script: |
+                    echo "✅ Deployment to Production completed successfully!"
+                    echo "🔗 URL: https://$(appServiceName).azurewebsites.net"
+                  displayName: 'Deployment Success Notification'
 
   # ============================================
-  # STAGE 4: POST-DEPLOYMENT TESTS
+  # STAGE 4: POST-DEPLOYMENT TESTS (Opcional)
   # ============================================
   - stage: PostDeploymentTests
     displayName: 'Post-Deployment Tests'
