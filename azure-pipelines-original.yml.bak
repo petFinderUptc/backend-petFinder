@@ -1,0 +1,263 @@
+# Azure DevOps Pipeline - PetFinder Backend
+# Pipeline de CI/CD para build, test y deploy automático del backend
+
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+      - feature/*
+  paths:
+    exclude:
+      - README.md
+      - docs/**
+      - .vscode/**
+
+# Ejecutar PR validation
+pr:
+  branches:
+    include:
+      - main
+      - develop
+  paths:
+    exclude:
+      - README.md
+      - docs/**
+
+# Variables globales del pipeline
+variables:
+  # Node.js
+  nodeVersion: '20.x'
+  
+  # Build
+  buildConfiguration: 'Release'
+  
+  # Proyecto
+  projectName: 'backend-petfinder'
+  
+  # Azure
+  azureSubscription: 'Azure Subscription - PetFinder' # CONFIGURAR en Azure DevOps
+  appServiceName: 'petfinder-backend-api' # CONFIGURAR con tu nombre de App Service
+  
+  # Testing
+  testResultsFiles: '**/coverage/cobertura-coverage.xml'
+  
+  # Artifacts
+  artifactName: 'backend-drop'
+
+# Pool de agentes (usar Microsoft-hosted agents)
+pool:
+  vmImage: 'ubuntu-latest'
+
+# Etapas del pipeline
+stages:
+  # ============================================
+  # STAGE 1: BUILD & TEST
+  # ============================================
+  - stage: BuildAndTest
+    displayName: 'Build and Test'
+    jobs:
+      - job: BuildJob
+        displayName: 'Build Application'
+        steps:
+          # 1. Checkout del código
+          - checkout: self
+            displayName: 'Checkout Repository'
+            clean: true
+
+          # 2. Instalar Node.js
+          - task: NodeTool@0
+            displayName: 'Install Node.js $(nodeVersion)'
+            inputs:
+              versionSpec: $(nodeVersion)
+
+          # 3. Cache de node_modules para acelerar builds
+          - task: Cache@2
+            displayName: 'Cache npm packages'
+            inputs:
+              key: 'npm | "$(Agent.OS)" | package-lock.json'
+              path: $(System.DefaultWorkingDirectory)/node_modules
+              restoreKeys: |
+                npm | "$(Agent.OS)"
+
+          # 4. Instalar dependencias
+          - script: |
+              npm ci
+            displayName: 'Install Dependencies (npm ci)'
+
+          # 5. Lint del código
+          - script: |
+              npm run lint
+            displayName: 'Run ESLint'
+            continueOnError: false
+
+          # 6. Verificar formato de código
+          - script: |
+              npx prettier --check "src/**/*.ts" "test/**/*.ts"
+            displayName: 'Check Code Formatting (Prettier)'
+            continueOnError: true
+
+          # 7. Build del proyecto
+          - script: |
+              npm run build
+            displayName: 'Build Application'
+
+          # 8. Ejecutar tests unitarios
+          - script: |
+              npm run test:cov
+            displayName: 'Run Unit Tests with Coverage'
+            continueOnError: false
+
+          # 9. Publicar resultados de tests
+          - task: PublishTestResults@2
+            displayName: 'Publish Test Results'
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: 'JUnit'
+              testResultsFiles: '**/junit.xml'
+              failTaskOnFailedTests: true
+              testRunTitle: 'Unit Tests'
+
+          # 10. Publicar cobertura de código
+          - task: PublishCodeCoverageResults@1
+            displayName: 'Publish Code Coverage'
+            condition: succeededOrFailed()
+            inputs:
+              codeCoverageTool: 'Cobertura'
+              summaryFileLocation: '$(System.DefaultWorkingDirectory)/coverage/cobertura-coverage.xml'
+              reportDirectory: '$(System.DefaultWorkingDirectory)/coverage'
+              failIfCoverageEmpty: false
+
+          # 11. Copiar archivos necesarios para deployment
+          - task: CopyFiles@2
+            displayName: 'Copy Files to Staging'
+            inputs:
+              SourceFolder: '$(System.DefaultWorkingDirectory)'
+              Contents: |
+                dist/**
+                node_modules/**
+                package*.json
+                .env.example
+              TargetFolder: '$(Build.ArtifactStagingDirectory)'
+              CleanTargetFolder: true
+
+          # 12. Publicar artifacts para deployment
+          - task: PublishBuildArtifacts@1
+            displayName: 'Publish Build Artifacts'
+            inputs:
+              PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+              ArtifactName: '$(artifactName)'
+              publishLocation: 'Container'
+
+  # ============================================
+  # STAGE 2: DEPLOY TO STAGING (Opcional)
+  # ============================================
+  - stage: DeployStaging
+    displayName: 'Deploy to Staging'
+    dependsOn: BuildAndTest
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
+    jobs:
+      - deployment: DeployToStaging
+        displayName: 'Deploy to Azure App Service (Staging)'
+        environment: 'staging'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                # 1. Descargar artifacts
+                - download: current
+                  artifact: $(artifactName)
+                  displayName: 'Download Build Artifacts'
+
+                # 2. Deploy a Azure App Service (Staging Slot)
+                - task: AzureWebApp@1
+                  displayName: 'Deploy to Azure App Service (Staging)'
+                  inputs:
+                    azureSubscription: $(azureSubscription)
+                    appType: 'webAppLinux'
+                    appName: $(appServiceName)
+                    deployToSlotOrASE: true
+                    resourceGroupName: 'petfinder-rg' # CONFIGURAR
+                    slotName: 'staging'
+                    package: '$(Pipeline.Workspace)/$(artifactName)'
+                    runtimeStack: 'NODE|20-lts'
+                    startUpCommand: 'npm run start:prod'
+
+                # 3. Health check del staging
+                - script: |
+                    echo "Waiting for staging deployment to warm up..."
+                    sleep 30
+                    curl -f https://$(appServiceName)-staging.azurewebsites.net/health || exit 1
+                  displayName: 'Health Check - Staging'
+                  continueOnError: true
+
+  # ============================================
+  # STAGE 3: DEPLOY TO PRODUCTION
+  # ============================================
+  - stage: DeployProduction
+    displayName: 'Deploy to Production'
+    dependsOn: BuildAndTest
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: DeployToProduction
+        displayName: 'Deploy to Azure App Service (Production)'
+        environment: 'production' # Requiere aprobación manual (configurar en Azure DevOps)
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                # 1. Descargar artifacts
+                - download: current
+                  artifact: $(artifactName)
+                  displayName: 'Download Build Artifacts'
+
+                # 2. Deploy a Azure App Service (Production)
+                - task: AzureWebApp@1
+                  displayName: 'Deploy to Azure App Service (Production)'
+                  inputs:
+                    azureSubscription: $(azureSubscription)
+                    appType: 'webAppLinux'
+                    appName: $(appServiceName)
+                    package: '$(Pipeline.Workspace)/$(artifactName)'
+                    runtimeStack: 'NODE|20-lts'
+                    startUpCommand: 'npm run start:prod'
+                    appSettings: |
+                      -NODE_ENV production
+                      -PORT 8080
+
+                # 3. Health check del production
+                - script: |
+                    echo "Waiting for production deployment to warm up..."
+                    sleep 30
+                    curl -f https://$(appServiceName).azurewebsites.net/health || exit 1
+                  displayName: 'Health Check - Production'
+
+                # 4. Notificación de deployment exitoso
+                - script: |
+                    echo "✅ Deployment to Production completed successfully!"
+                    echo "🔗 URL: https://$(appServiceName).azurewebsites.net"
+                  displayName: 'Deployment Success Notification'
+
+  # ============================================
+  # STAGE 4: POST-DEPLOYMENT TESTS (Opcional)
+  # ============================================
+  - stage: PostDeploymentTests
+    displayName: 'Post-Deployment Tests'
+    dependsOn: DeployProduction
+    condition: succeeded()
+    jobs:
+      - job: SmokeTests
+        displayName: 'Run Smoke Tests'
+        steps:
+          # 1. Test de endpoints críticos
+          - script: |
+              echo "Running smoke tests on production..."
+              
+              # Test health check
+              curl -f https://$(appServiceName).azurewebsites.net/health
+              
+              # Test info endpoint
+              curl -f https://$(appServiceName).azurewebsites.net/info
+              
+              echo "✅ Smoke tests passed!"
+            displayName: 'Smoke Tests - Critical Endpoints'

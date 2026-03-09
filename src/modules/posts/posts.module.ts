@@ -1,17 +1,17 @@
-/**
- * Módulo de publicaciones
- *
- * Gestiona todas las funcionalidades relacionadas con
- * publicaciones de mascotas perdidas y encontradas.
- */
-
 import { Module } from '@nestjs/common';
-import { PostsController } from './posts.controller';
-import { PostsService } from './posts.service';
+import { PostsController } from '../../presentation/controllers';
+import { PostsService } from '../../application/services';
+import { InMemoryPostRepository } from '../../infrastructure/database/in-memory';
 
 @Module({
   controllers: [PostsController],
-  providers: [PostsService],
+  providers: [
+    PostsService,
+    {
+      provide: 'IPostRepository',
+      useClass: InMemoryPostRepository,
+    },
+  ],
   exports: [PostsService],
 })
 export class PostsModule {}

@@ -1,18 +1,18 @@
-/**
- * Módulo de usuarios
- *
- * Gestiona toda la funcionalidad relacionada con usuarios del sistema.
- *
- * Exporta UsersService para que pueda ser usado por AuthModule
- */
-
 import { Module } from '@nestjs/common';
-import { UsersController } from './users.controller';
-import { UsersService } from './users.service';
+import { UsersController } from '../../presentation/controllers';
+import { UsersService, PasswordHashService } from '../../application/services';
+import { InMemoryUserRepository } from '../../infrastructure/database/in-memory';
 
 @Module({
   controllers: [UsersController],
-  providers: [UsersService],
-  exports: [UsersService], // Exportar para uso en AuthModule
+  providers: [
+    UsersService,
+    PasswordHashService,
+    {
+      provide: 'IUserRepository',
+      useClass: InMemoryUserRepository,
+    },
+  ],
+  exports: [UsersService, PasswordHashService],
 })
 export class UsersModule {}
