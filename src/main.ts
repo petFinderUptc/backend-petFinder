@@ -1,64 +1,73 @@
-/**
- * Punto de entrada principal de la aplicación NestJS
- *
- * Configura:
- * - Puerto del servidor
- * - CORS
- * - Prefijo global de API
- * - Validación global de DTOs
- *
- * FASE FUTURA: Agregar
- * - Helmet para seguridad
- * - Swagger/OpenAPI documentation
- * - Compression middleware
- * - Logger personalizado (Winston)
- */
-
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const logger = new Logger('Bootstrap');
 
-  // Obtener servicio de configuración
-  const configService = app.get(ConfigService);
+  try {
+    logger.log('🚀 Starting PetFinder Backend API...');
 
-  // Configurar CORS
-  const corsOrigins = configService.get<string[]>('cors.origins');
-  app.enableCors({
-    origin: corsOrigins,
-    credentials: true,
-  });
+    const app = await NestFactory.create(AppModule, {
+      logger: ['log', 'error', 'warn', 'debug', 'verbose'],
+    });
 
-  // Prefijo global para todas las rutas
-  const apiPrefix = configService.get<string>('app.apiPrefix');
-  app.setGlobalPrefix(apiPrefix);
+    const configService = app.get(ConfigService);
 
-  // Validación global con class-validator
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true, // Remueve propiedades no definidas en DTO
-      forbidNonWhitelisted: true, // Lanza error si hay propiedades extras
-      transform: true, // Transforma payloads a instancias de DTO
-    }),
-  );
+    // Validar configuración crítica
+    const nodeEnv = configService.get<string>('app.nodeEnv');
+    const port = configService.get<number>('app.port');
+    const apiPrefix = configService.get<string>('app.apiPrefix');
+    const jwtSecret = configService.get<string>('jwt.secret');
 
-  // TODO: FASE 2 - Agregar Swagger
-  // const config = new DocumentBuilder()
-  //   .setTitle('PetFinder API')
-  //   .setDescription('API para búsqueda de mascotas perdidas')
-  //   .setVersion('1.0')
-  //   .addBearerAuth()
-  //   .build();
-  // const document = SwaggerModule.createDocument(app, config);
-  // SwaggerModule.setup('api/docs', app, document);
+    logger.log(`📊 Environment: ${nodeEnv}`);
+    logger.log(`🔌 Port: ${port}`);
+    logger.log(`🔗 API Prefix: /${apiPrefix}`);
+    logger.log(`🔐 JWT Secret: ${jwtSecret ? '✓ Configured' : '✗ Missing'}`);
 
-  const port = configService.get<number>('app.port');
-  await app.listen(port);
+    // Configurar CORS
+    const corsOrigins = configService.get<string[]>('cors.origins');
+    logger.log(`🌐 CORS Origins: ${corsOrigins?.join(', ') || 'Not configured'}`);
 
-  console.log(`🐾 PetFinder API running on: http://localhost:${port}/${apiPrefix}`);
+    app.enableCors({
+      origin: corsOrigins || '*',
+      credentials: true,
+    });
+
+    // Configurar prefijo de API
+    app.setGlobalPrefix(apiPrefix, {
+      exclude: ['/', 'health', 'info', 'db-health'],
+    });
+
+    // Configurar validación global
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
+
+    // Iniciar servidor
+    await app.listen(port, '0.0.0.0');
+
+    logger.log('========================================');
+    logger.log(`✅ PetFinder API is running!`);
+    logger.log(`📍 Local: http://localhost:${port}`);
+    logger.log(`📍 Network: http://0.0.0.0:${port}`);
+    logger.log(`📍 Health: http://localhost:${port}/health`);
+    logger.log(`📍 Info: http://localhost:${port}/info`);
+    logger.log(`📍 API: http://localhost:${port}/${apiPrefix}`);
+    logger.log('========================================');
+  } catch (error) {
+    logger.error('❌ Failed to start application', error.stack);
+    logger.error('🔍 Please check:');
+    logger.error('   1. All environment variables are configured');
+    logger.error('   2. Cosmos DB credentials are correct');
+    logger.error('   3. Port 8080 is available');
+    process.exit(1);
+  }
 }
 
 bootstrap();

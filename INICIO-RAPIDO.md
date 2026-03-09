@@ -1,219 +1,319 @@
-# ⚡ Inicio Rápido - PetFinder Backend
+# 🎯 RESUMEN EJECUTIVO - Configuración Azure (Backend PetFinder)
 
-## 🚀 Levantar el Proyecto en 5 Minutos
+## ✅ CAMBIOS REALIZADOS EN EL PROYECTO
 
-### Paso 1: Verificar Requisitos
-```bash
-# Verificar Node.js (debe ser >= 18)
-node --version
+He analizado todo tu proyecto y realizado las siguientes mejoras:
 
-# Verificar npm
-npm --version
-```
+### **Archivos Creados:**
+1. ✅ `web.config` - Configuración para Azure App Service (Windows)
+2. ✅ `startup.sh` - Script de inicio para Azure App Service (Linux)
+3. ✅ `.deployment` - Configuración de deployment Azure
+4. ✅ `scripts/check-env-vars.js` - Script para verificar variables de entorno
+5. ✅ `QUICK-FIX-AZURE.md` - Guía rápida (5 minutos)
+6. ✅ `AZURE-FIX-403-ERROR.md` - Guía completa con troubleshooting
 
-### Paso 2: Instalar Dependencias
-```bash
-npm install
-```
-
-### Paso 3: Configurar Variables de Entorno
-```bash
-# El archivo .env ya está creado con valores de desarrollo
-# Para producción, actualiza los valores según tu entorno
-```
-
-### Paso 4: Ejecutar en Modo Desarrollo
-```bash
-npm run start:dev
-```
-
-✅ **¡Listo!** El servidor estará corriendo en `http://localhost:3000`
+### **Archivos Mejorados:**
+1. ✅ `package.json` - Agregado engines (Node 20+)
+2. ✅ `src/main.ts` - Mejor manejo de errores y logs de diagnóstico
+3. ✅ `src/infrastructure/database/cosmosdb.service.ts` - Mejores mensajes de error
 
 ---
 
-## 🧪 Probar los Endpoints
+## 🚨 EL PROBLEMA DEL ERROR 403
 
-### 1️⃣ Registrar un Usuario
-```bash
-curl -X POST http://localhost:3000/api/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "test@example.com",
-    "password": "password123",
-    "firstName": "Juan",
-    "lastName": "Pérez"
-  }'
+Tu aplicación muestra **"Error 403 - This web app is stopped"** porque:
+
+### **Azure NO tiene las variables de entorno configuradas**
+
+El archivo `.env` en tu computadora **NO se sube a Azure** (está en .gitignore por seguridad).
+
+Azure necesita que configures las variables **manualmente en el Portal**.
+
+---
+
+## ⚡ SOLUCIÓN RÁPIDA (3 PASOS - 5 MINUTOS)
+
+### **PASO 1: Subir los Cambios a GitHub**
+
+```powershell
+# Desde tu proyecto (ya estás en la carpeta correcta)
+git add .
+git commit -m "fix: configuración Azure y manejo de errores mejorado"
+git push origin main
 ```
 
-### 2️⃣ Hacer Login
-```bash
-curl -X POST http://localhost:3000/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "test@example.com",
-    "password": "password123"
-  }'
+**Espera 2-3 minutos** a que Azure detecte los cambios y redeploy automáticamente.
+
+---
+
+### **PASO 2: Configurar Variables de Entorno en Azure Portal** ⚠️ CRÍTICO
+
+1. Ve a: **https://portal.azure.com**
+2. Busca tu **App Service** (backend)
+3. Click en: **Settings → Configuration**
+4. Click en pestaña: **"Application settings"**
+5. Click en: **"+ New application setting"**
+
+**Agrega estas 12 variables** (una por una):
+
+```
+NODE_ENV = production
+PORT = 8080
+API_PREFIX = api/v1
+JWT_SECRET = mi-clave-super-secreta-2024
+JWT_EXPIRATION = 7d
+BCRYPT_SALT_ROUNDS = 12
+CORS_ORIGINS = *
+THROTTLE_TTL = 60
+THROTTLE_LIMIT = 10
+COSMOS_DB_ENDPOINT = https://tu-cuenta-cosmosdb.documents.azure.com:443/
+COSMOS_DB_KEY = TU-COSMOS-PRIMARY-KEY-AQUI
+COSMOS_DB_DATABASE = petfinder
 ```
 
-**Respuesta:**
+6. **⚠️ IMPORTANTE:** Click en **"Save"** arriba
+7. Espera a que termine el reinicio (barra azul de progreso)
+
+---
+
+### **PASO 3: Configurar Startup Command**
+
+1. En la misma página **Configuration**
+2. Click en pestaña **"General settings"**
+3. En **"Stack settings":**
+   - Stack: **Node**
+   - Major version: **20 LTS**
+   - Minor version: **20 LTS** (o la más reciente)
+4. En **"Startup Command"** escribe:
+
+```bash
+npm run start:prod
+```
+
+5. Click **"Save"**
+6. Espera 2-3 minutos
+
+---
+
+## ✅ VERIFICAR QUE FUNCIONA
+
+Abre tu navegador y prueba estos endpoints:
+
+### **1. Health Check:**
+```
+https://TU-APP-NAME.azurewebsites.net/health
+```
+**Debe responder:**
 ```json
 {
-  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": {
-    "id": "user_123",
-    "email": "test@example.com",
-    "firstName": "Juan",
-    "lastName": "Pérez"
-  }
+  "status": "healthy",
+  "uptime": 123.456,
+  "timestamp": "2026-03-09T..."
 }
 ```
 
-### 3️⃣ Crear una Publicación de Mascota Perdida
-```bash
-curl -X POST http://localhost:3000/api/v1/posts \
-  -H "Content-Type: application/json" \
-  -d '{
-    "type": "lost",
-    "petName": "Max",
-    "petType": "dog",
-    "breed": "Labrador",
-    "color": "Dorado",
-    "size": "large",
-    "description": "Perro grande, muy amigable, collar rojo",
-    "location": {
-      "city": "Tunja",
-      "neighborhood": "Centro"
-    },
-    "contactPhone": "+573001234567",
-    "lostOrFoundDate": "2026-02-25T10:00:00Z"
-  }'
+### **2. Info:**
+```
+https://TU-APP-NAME.azurewebsites.net/info
 ```
 
-### 4️⃣ Listar Publicaciones con Filtros
-```bash
-# Todas las publicaciones
-curl http://localhost:3000/api/v1/posts
-
-# Solo mascotas perdidas
-curl http://localhost:3000/api/v1/posts?type=lost
-
-# Perros perdidos en Tunja
-curl http://localhost:3000/api/v1/posts?type=lost&petType=dog&city=Tunja
+### **3. Root:**
 ```
+https://TU-APP-NAME.azurewebsites.net/
+```
+
+### **4. Database Health:**
+```
+https://TU-APP-NAME.azurewebsites.net/db-health
+```
+
+Si ves respuestas JSON → **¡FUNCIONA!** ✅
 
 ---
 
-## 📋 Comandos Útiles
+## 🔍 SI AÚN NO FUNCIONA
 
-```bash
-# Desarrollo con hot-reload
-npm run start:dev
+### **Ver Logs en Tiempo Real:**
 
-# Build para producción
-npm run build
+1. Azure Portal → Tu App Service
+2. **Monitoring → Log stream**
+3. Espera 30 segundos
+4. Verás los logs de tu aplicación en tiempo real
 
-# Ejecutar en producción
-npm run start:prod
+**Busca estos mensajes:**
+- ✅ `🚀 Starting PetFinder Backend API...`
+- ✅ `📊 Environment: production`
+- ✅ `🔌 Port: 8080`
+- ✅ `✅ PetFinder API is running!`
 
-# Linter
-npm run lint
-
-# Formatear código
-npm run format
-
-# Tests
-npm run test
-
-# Tests con coverage
-npm run test:cov
-
-# Tests E2E
-npm run test:e2e
-```
+**O errores como:**
+- ❌ `Missing environment variable: JWT_SECRET`
+- ❌ `Cannot connect to Cosmos DB`
+- ❌ `Port 8080 is already in use`
 
 ---
 
-## 🛠️ Generar Nuevos Recursos
+### **Errores Comunes y Soluciones:**
 
-### Crear un Módulo Completo
+#### **Error: "Missing environment variable: XXX"**
+**Solución:** Verifica que agregaste TODAS las 12 variables en Configuration
+
+#### **Error: "Cannot find module 'dist/main'"**
+**Solución:** Cambia el Startup Command a:
 ```bash
-# Genera module, controller, service automáticamente
-nest generate resource nombre-modulo
+npm ci && npm run build && npm run start:prod
 ```
 
-### Crear Componentes Individuales
-```bash
-nest generate module nombre
-nest generate controller nombre
-nest generate service nombre
-```
+#### **Error: "Cannot connect to Cosmos DB"**
+**Solución 1:** Verifica las 3 variables COSMOS_DB_*
+
+**Solución 2:** Ve a tu Cosmos DB en Azure Portal:
+- Settings → Firewall and virtual networks
+- Habilita: **"Allow access from Azure services"** ✅
+
+#### **Error: "EADDRINUSE: Port 8080 is already in use"**
+**Solución:** Azure ya asigna el puerto automáticamente, no necesitas especificarlo
 
 ---
 
-## 📂 Archivos Importantes
+## 📋 CHECKLIST COMPLETO
 
-| Archivo | Descripción |
-|---------|-------------|
-| `src/main.ts` | Punto de entrada |
-| `src/app.module.ts` | Módulo raíz |
-| `.env` | Variables de entorno |
-| `package.json` | Dependencias |
+Marca cada paso:
+
+### Configuración Local (Ya hecho por mí):
+- [x] Archivos de configuración Azure creados
+- [x] package.json actualizado con engines
+- [x] main.ts mejorado con mejor logging
+- [x] cosmosdb.service.ts con mejor manejo de errores
+
+### Tu Parte (Por hacer):
+- [ ] Subir cambios a GitHub (`git push origin main`)
+- [ ] Esperar redespliegue automático en Azure (2-3 min)
+- [ ] Agregar 12 variables de entorno en Azure Portal
+- [ ] Click "Save" en Configuration
+- [ ] Esperar reinicio (barra azul completa)
+- [ ] Configurar Startup Command: `npm run start:prod`
+- [ ] Click "Save" de nuevo
+- [ ] Esperar 2-3 minutos
+- [ ] Probar: `https://tu-app.azurewebsites.net/health`
+- [ ] Verificar respuesta: `{"status":"healthy"}` ✅
 
 ---
 
-## 🐛 Solución de Problemas Comunes
+## 🎯 COMANDOS PARA EJECUTAR AHORA
 
-### Error: "Puerto 3000 ya en uso"
-```bash
-# Windows
-netstat -ano | findstr :3000
-taskkill /PID <PID> /F
+```powershell
+# 1. Subir cambios a GitHub
+git add .
+git commit -m "fix: configuración Azure y manejo de errores"
+git push origin main
 
-# Linux/Mac
-lsof -ti:3000 | xargs kill -9
-```
+# 2. Verificar que el push fue exitoso
+git log --oneline -1
 
-### Error: "Cannot find module"
-```bash
-# Reinstalar dependencias
-rm -rf node_modules package-lock.json
-npm install
-```
-
-### Error de TypeScript
-```bash
-# Limpiar build
-rm -rf dist
-npm run build
+# 3. Verificar la URL de tu App Service
+# Reemplaza TU-APP-NAME con el nombre real de tu App Service
+# https://TU-APP-NAME.azurewebsites.net
 ```
 
 ---
 
-## 📚 Próximos Pasos
+## 📞 COMANDOS ÚTILES (Azure CLI)
 
-1. ✅ Levantar el proyecto
-2. ✅ Probar endpoints con Postman o curl
-3. 📖 Leer [ESTRUCTURA.md](./ESTRUCTURA.md) para entender la arquitectura
-4. 📖 Leer [CONTRIBUTING.md](./CONTRIBUTING.md) para convenciones de código
-5. 🔧 Empezar a desarrollar tu feature
+Si tienes Azure CLI instalado:
 
----
+```bash
+# Ver logs en tiempo real
+az webapp log tail --name TU-APP-NAME --resource-group TU-RESOURCE-GROUP
 
-## 🎓 Recursos de Aprendizaje
+# Ver todas las variables configuradas
+az webapp config appsettings list --name TU-APP-NAME --resource-group TU-RESOURCE-GROUP --output table
 
-- [Documentación NestJS](https://docs.nestjs.com/)
-- [TypeScript Handbook](https://www.typescriptlang.org/docs/)
-- [class-validator Docs](https://github.com/typestack/class-validator)
-- [JWT Explained](https://jwt.io/introduction)
+# Reiniciar la app
+az webapp restart --name TU-APP-NAME --resource-group TU-RESOURCE-GROUP
 
----
-
-## 💬 ¿Dudas?
-
-1. Revisa la documentación en los archivos `.md`
-2. Consulta los comentarios en el código (todos los TODOs están marcados)
-3. Los archivos tienen ejemplos comentados para FASE 2
+# Ver información del App Service
+az webapp show --name TU-APP-NAME --resource-group TU-RESOURCE-GROUP --query "{name:name,state:state,url:defaultHostName}" --output table
+```
 
 ---
 
-**¡Feliz Coding! 🚀**
+## 📚 DOCUMENTACIÓN CREADA
+
+He creado estas guías para ti:
+
+1. **QUICK-FIX-AZURE.md** - Solución rápida (5 minutos)
+2. **AZURE-FIX-403-ERROR.md** - Guía completa con troubleshooting detallado
+
+**Léelas si necesitas más detalles o ayuda específica.**
+
+---
+
+## 🎉 RESULTADO FINAL ESPERADO
+
+Después de seguir todos los pasos, tu API debería estar funcionando en:
+
+```
+🌐 Production URL: https://TU-APP-NAME.azurewebsites.net
+✅ Health Check: https://TU-APP-NAME.azurewebsites.net/health
+📋 Info: https://TU-APP-NAME.azurewebsites.net/info
+🔐 Auth: https://TU-APP-NAME.azurewebsites.net/api/v1/auth
+👤 Users: https://TU-APP-NAME.azurewebsites.net/api/v1/users
+📝 Posts: https://TU-APP-NAME.azurewebsites.net/api/v1/posts
+```
+
+---
+
+## ⚠️ IMPORTANTE
+
+**NO compartas públicamente:**
+- Tu `COSMOS_DB_KEY` (es como una contraseña)
+- Tu `JWT_SECRET`
+
+**El archivo `.env` ya está en .gitignore**, por lo que no se subirá a GitHub. ✅
+
+---
+
+## 🆘 ¿NECESITAS AYUDA?
+
+Si después de seguir todos los pasos aún tienes problemas:
+
+1. Ve a **Log stream** en Azure Portal
+2. Copia el mensaje de error exacto que ves
+3. Verifica que las 12 variables estén en Configuration
+4. Comparte el error específico
+
+**La mayoría de los problemas se resuelven configurando correctamente las variables de entorno.**
+
+---
+
+## ✅ PRÓXIMOS PASOS
+
+Una vez que tu backend funcione:
+
+1. **Actualiza CORS_ORIGINS** cuando tengas tu frontend:
+   ```
+   CORS_ORIGINS = https://tu-frontend.azurewebsites.net
+   ```
+
+2. **Configura un JWT_SECRET más seguro:**
+   ```bash
+   # Genera uno nuevo con este comando:
+   node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+   ```
+
+3. **Considera agregar Application Insights** para monitoreo:
+   - Azure Portal → Application Insights → Create
+   - Agrega la connection string en variables de entorno
+
+---
+
+**¡EMPIEZA AHORA!** 🚀
+
+```powershell
+git add .
+git commit -m "fix: configuración Azure"
+git push origin main
+```
+
+Luego ve a Azure Portal y agrega las variables de entorno.

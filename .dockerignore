@@ -1,0 +1,68 @@
+# Ignorar archivos innecesarios en Docker builds
+
+# Dependencias
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+dist/
+build/
+coverage/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+test/
+*.spec.ts
+*.test.ts
+coverage/
+
+# Environment files (se configuran en Azure)
+.env
+.env.local
+.env.*.local
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Azure DevOps
+azure-pipelines.yml
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Prettier & ESLint
+.prettierrc
+.prettierignore
+.eslintrc.js
+.eslintignore
+
+# Husky
+.husky/
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
