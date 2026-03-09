@@ -1,16 +1,3 @@
-/**
- * Entidad de Dominio: User
- *
- * Representa un usuario en el sistema con todas sus propiedades y reglas de negocio.
- * Esta es una entidad de dominio pura, independiente de frameworks.
- *
- * Campos configurados para optimización con Cosmos DB:
- * - email: Partition Key para distribución uniforme
- * - username: Índice único compuesto con createdAt
- * - role: Índice compuesto con createdAt para filtrado
- * - isActive: Índice compuesto con updatedAt
- */
-
 import { UserRole } from '../enums';
 
 export class User {
