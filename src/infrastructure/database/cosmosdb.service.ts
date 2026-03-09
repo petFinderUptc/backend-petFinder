@@ -13,41 +13,54 @@ export class CosmosDbService implements OnModuleInit {
   constructor(private configService: ConfigService) {}
 
   async onModuleInit() {
-    await this.connect();
+    try {
+      await this.connect();
+    } catch (error) {
+      this.logger.error('Failed to initialize Cosmos DB connection');
+      this.logger.error('⚠️  Application will start but database operations will fail');
+      this.logger.error('🔍 Check COSMOS_DB_ENDPOINT, COSMOS_DB_KEY, and COSMOS_DB_DATABASE');
+      // No lanzar error aquí para que la app pueda iniciar y mostrar endpoints de diagnóstico
+    }
   }
 
   private async connect(): Promise<void> {
+    const endpoint = this.configService.get<string>('cosmosDb.endpoint');
+    const key = this.configService.get<string>('cosmosDb.key');
+    const databaseId = this.configService.get<string>('cosmosDb.database');
+
+    if (!endpoint || !key) {
+      const errorMsg = 'Cosmos DB credentials not configured. Missing COSMOS_DB_ENDPOINT or COSMOS_DB_KEY';
+      this.logger.error(`❌ ${errorMsg}`);
+      throw new Error(errorMsg);
+    }
+
+    this.logger.log('🔌 Connecting to Azure Cosmos DB...');
+    this.logger.log(`📍 Endpoint: ${endpoint}`);
+    this.logger.log(`📦 Database: ${databaseId}`);
+
+    this.client = new CosmosClient({ endpoint, key });
+
     try {
-      const endpoint = this.configService.get<string>('cosmosDb.endpoint');
-      const key = this.configService.get<string>('cosmosDb.key');
-      const databaseId = this.configService.get<string>('cosmosDb.database');
-
-      if (!endpoint || !key) {
-        throw new Error(
-          'Cosmos DB credentials not configured. Check COSMOS_DB_ENDPOINT and COSMOS_DB_KEY in .env',
-        );
-      }
-
-      this.logger.log('Connecting to Azure Cosmos DB...');
-
-      this.client = new CosmosClient({ endpoint, key });
-
       const { resource: account } = await this.client.getDatabaseAccount();
       this.logger.log(
-        `Connected to Cosmos DB account in region: ${account.writableLocations[0]?.name || 'Unknown'}`,
+        `✅ Connected to Cosmos DB account in region: ${account.writableLocations[0]?.name || 'Unknown'}`,
       );
 
       const { database } = await this.client.databases.createIfNotExists({
         id: databaseId,
       });
       this.database = database;
-      this.logger.log(`Database "${databaseId}" ready`);
+      this.logger.log(`📦 Database "${databaseId}" is ready`);
 
       await this.initializeContainers();
 
       this.logger.log('✅ Cosmos DB connection established successfully');
     } catch (error) {
-      this.logger.error('Failed to connect to Cosmos DB', error.stack);
+      this.logger.error('❌ Failed to connect to Cosmos DB', error.message);
+      this.logger.error('🔍 Possible causes:');
+      this.logger.error('   1. Invalid COSMOS_DB_KEY');
+      this.logger.error('   2. Cosmos DB firewall blocking Azure App Service IP');
+      this.logger.error('   3. Network connectivity issues');
       throw error;
     }
   }
