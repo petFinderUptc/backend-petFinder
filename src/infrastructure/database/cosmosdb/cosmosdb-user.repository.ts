@@ -16,16 +16,17 @@ import { UserDocument } from '../types/user-document.type';
 @Injectable()
 export class CosmosDbUserRepository implements IUserRepository {
   private readonly logger = new Logger(CosmosDbUserRepository.name);
-  private container: Container;
 
-  constructor(private cosmosDbService: CosmosDbService) {
-    this.container = this.cosmosDbService.getUsersContainer();
+  constructor(private cosmosDbService: CosmosDbService) {}
+
+  private getContainer(): Container {
+    return this.cosmosDbService.getUsersContainer();
   }
 
   async create(user: User): Promise<User> {
     try {
       const document = this.toDocument(user);
-      const { resource } = await this.container.items.create(document);
+      const { resource } = await this.getContainer().items.create(document);
 
       this.logger.log(`User created in Cosmos DB: ${user.id}`);
       return this.toDomain(resource);
@@ -37,8 +38,8 @@ export class CosmosDbUserRepository implements IUserRepository {
 
   async findById(id: string): Promise<User | null> {
     try {
-      const { resources } = await this.container.items
-        .query({
+      const { resources } = await this.getContainer()
+        .items.query({
           query: 'SELECT * FROM c WHERE c.id = @id',
           parameters: [{ name: '@id', value: id }],
         })
@@ -58,8 +59,8 @@ export class CosmosDbUserRepository implements IUserRepository {
   async findByEmail(email: string): Promise<User | null> {
     try {
       // Email es el partition key, query optimizada
-      const { resources } = await this.container.items
-        .query({
+      const { resources } = await this.getContainer()
+        .items.query({
           query: 'SELECT * FROM c WHERE c.email = @email',
           parameters: [{ name: '@email', value: email }],
         })
@@ -78,8 +79,8 @@ export class CosmosDbUserRepository implements IUserRepository {
 
   async findByUsername(username: string): Promise<User | null> {
     try {
-      const { resources } = await this.container.items
-        .query({
+      const { resources } = await this.getContainer()
+        .items.query({
           query: 'SELECT * FROM c WHERE c.username = @username',
           parameters: [{ name: '@username', value: username }],
         })
@@ -98,7 +99,7 @@ export class CosmosDbUserRepository implements IUserRepository {
 
   async findAll(): Promise<User[]> {
     try {
-      const { resources } = await this.container.items.query('SELECT * FROM c').fetchAll();
+      const { resources } = await this.getContainer().items.query('SELECT * FROM c').fetchAll();
 
       return resources.map((doc) => this.toDomain(doc));
     } catch (error) {
@@ -141,7 +142,7 @@ export class CosmosDbUserRepository implements IUserRepository {
       const document = this.toDocument(updatedUser);
 
       // Reemplazar documento usando email como partition key
-      const { resource } = await this.container.item(id, existingUser.email).replace(document);
+      const { resource } = await this.getContainer().item(id, existingUser.email).replace(document);
 
       this.logger.log(`User updated in Cosmos DB: ${id}`);
       return this.toDomain(resource);
@@ -159,7 +160,7 @@ export class CosmosDbUserRepository implements IUserRepository {
         throw new Error(`User with id ${id} not found`);
       }
 
-      await this.container.item(id, user.email).delete();
+      await this.getContainer().item(id, user.email).delete();
       this.logger.log(`User deleted from Cosmos DB: ${id}`);
     } catch (error) {
       this.logger.error(`Error deleting user ${id}: ${error.message}`);
@@ -169,8 +170,8 @@ export class CosmosDbUserRepository implements IUserRepository {
 
   async existsByEmail(email: string): Promise<boolean> {
     try {
-      const { resources } = await this.container.items
-        .query({
+      const { resources } = await this.getContainer()
+        .items.query({
           query: 'SELECT VALUE COUNT(1) FROM c WHERE c.email = @email',
           parameters: [{ name: '@email', value: email }],
         })
@@ -185,8 +186,8 @@ export class CosmosDbUserRepository implements IUserRepository {
 
   async existsByUsername(username: string): Promise<boolean> {
     try {
-      const { resources } = await this.container.items
-        .query({
+      const { resources } = await this.getContainer()
+        .items.query({
           query: 'SELECT VALUE COUNT(1) FROM c WHERE c.username = @username',
           parameters: [{ name: '@username', value: username }],
         })
