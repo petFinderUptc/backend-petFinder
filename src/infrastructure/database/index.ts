@@ -6,3 +6,4 @@
 
 export { DatabaseModule } from './database.module';
 export { CosmosDbService } from './cosmosdb.service';
+export { CosmosDbUserRepository } from './cosmosdb/cosmosdb-user.repository';
