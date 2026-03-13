@@ -9,6 +9,7 @@ export class CosmosDbService implements OnModuleInit {
   private database: Database;
   private usersContainer: Container;
   private postsContainer: Container;
+  private notificationsContainer: Container;
 
   constructor(private configService: ConfigService) {}
 
@@ -29,7 +30,8 @@ export class CosmosDbService implements OnModuleInit {
     const databaseId = this.configService.get<string>('cosmosDb.database');
 
     if (!endpoint || !key) {
-      const errorMsg = 'Cosmos DB credentials not configured. Missing COSMOS_DB_ENDPOINT or COSMOS_DB_KEY';
+      const errorMsg =
+        'Cosmos DB credentials not configured. Missing COSMOS_DB_ENDPOINT or COSMOS_DB_KEY';
       this.logger.error(`❌ ${errorMsg}`);
       throw new Error(errorMsg);
     }
@@ -73,10 +75,7 @@ export class CosmosDbService implements OnModuleInit {
         version: 2,
       },
       uniqueKeyPolicy: {
-        uniqueKeys: [
-          { paths: ['/username'] },
-          { paths: ['/email'] },
-        ],
+        uniqueKeys: [{ paths: ['/username'] }, { paths: ['/email'] }],
       },
       indexingPolicy: {
         indexingMode: 'consistent',
@@ -108,6 +107,19 @@ export class CosmosDbService implements OnModuleInit {
     });
     this.postsContainer = posts;
     this.logger.log('Container "posts" ready');
+
+    const { container: notifications } = await this.database.containers.createIfNotExists({
+      id: 'notifications',
+      partitionKey: { paths: ['/userId'] },
+      indexingPolicy: {
+        indexingMode: 'consistent',
+        automatic: true,
+        includedPaths: [{ path: '/*' }],
+        excludedPaths: [{ path: '/"_etag"/?' }],
+      },
+    });
+    this.notificationsContainer = notifications;
+    this.logger.log('Container "notifications" ready');
   }
 
   getClient(): CosmosClient {
@@ -136,6 +148,13 @@ export class CosmosDbService implements OnModuleInit {
       throw new Error('Posts container not initialized');
     }
     return this.postsContainer;
+  }
+
+  getNotificationsContainer(): Container {
+    if (!this.notificationsContainer) {
+      throw new Error('Notifications container not initialized');
+    }
+    return this.notificationsContainer;
   }
 
   getContainer(containerId: string): Container {

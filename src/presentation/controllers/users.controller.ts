@@ -9,9 +9,19 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { UsersService } from '../../application/services';
-import { CreateUserDto, UpdateUserDto, UserResponseDto } from '../../application/dtos/users';
+import {
+  CreateUserDto,
+  UpdateUserDto,
+  UserResponseDto,
+  ChangePasswordDto,
+  UserStatsDto,
+  DeleteAccountDto,
+} from '../../application/dtos/users';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RolesGuard } from '../guards/roles.guard';
 import { Roles } from '../decorators/roles.decorator';
@@ -34,6 +44,12 @@ export class UsersController {
     return this.usersService.findAll();
   }
 
+  @Get('stats')
+  @UseGuards(JwtAuthGuard)
+  async getStats(@CurrentUser() user: UserFromJwt): Promise<UserStatsDto> {
+    return this.usersService.getUserStats(user.id);
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string): Promise<UserResponseDto> {
     return this.usersService.findOne(id);
@@ -52,6 +68,59 @@ export class UsersController {
     @Body() updateUserDto: UpdateUserDto,
   ): Promise<UserResponseDto> {
     return this.usersService.update(user.id, updateUserDto);
+  }
+
+  @Put('change-password')
+  @UseGuards(JwtAuthGuard)
+  async changePassword(
+    @CurrentUser() user: UserFromJwt,
+    @Body() changePasswordDto: ChangePasswordDto,
+  ): Promise<{ message: string }> {
+    await this.usersService.changePassword(
+      user.id,
+      changePasswordDto.currentPassword,
+      changePasswordDto.newPassword,
+    );
+
+    return { message: 'Contrasena actualizada correctamente' };
+  }
+
+  @Post('avatar')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('avatar', {
+      limits: { fileSize: 5 * 1024 * 1024 },
+      fileFilter: (req, file, callback) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
+          return callback(new Error('Solo se permiten imagenes'), false);
+        }
+        callback(null, true);
+      },
+    }),
+  )
+  async uploadAvatar(
+    @CurrentUser() user: UserFromJwt,
+    @UploadedFile() file: any,
+  ): Promise<{ avatarUrl: string }> {
+    const avatarUrl = await this.usersService.uploadAvatar(user.id, file);
+    return { avatarUrl };
+  }
+
+  @Delete('avatar')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteAvatar(@CurrentUser() user: UserFromJwt): Promise<void> {
+    await this.usersService.deleteAvatar(user.id);
+  }
+
+  @Delete('account')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteAccount(
+    @CurrentUser() user: UserFromJwt,
+    @Body() confirmationDto: DeleteAccountDto,
+  ): Promise<void> {
+    await this.usersService.deleteAccount(user.id, confirmationDto.password);
   }
 
   @Put(':id')

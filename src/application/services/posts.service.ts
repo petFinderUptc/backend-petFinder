@@ -1,15 +1,20 @@
-import { Injectable, NotFoundException, ForbiddenException, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Inject, Logger } from '@nestjs/common';
 import { CreatePostDto, UpdatePostDto, FilterPostDto } from '../dtos/posts';
 import { IPostRepository, PostFilters } from '../../domain/repositories';
 import { Post } from '../../domain/entities';
 import { PostStatus } from '../../domain/enums';
 import { Location } from '../../domain/value-objects';
+import { NotificationsService } from './notifications.service';
+import { NotificationType } from '../../domain/entities';
 
 @Injectable()
 export class PostsService {
+  private readonly logger = new Logger(PostsService.name);
+
   constructor(
     @Inject('IPostRepository')
     private readonly postRepository: IPostRepository,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async create(userId: string, createPostDto: CreatePostDto): Promise<Post> {
@@ -105,7 +110,21 @@ export class PostsService {
       contactEmail: updatePostDto.contactEmail,
     });
 
-    return await this.postRepository.update(id, post);
+    const updatedPost = await this.postRepository.update(id, post);
+
+    try {
+      await this.notificationsService.create(
+        post.userId,
+        NotificationType.UPDATE,
+        'Tu reporte fue actualizado',
+        `Se actualizo la informacion de tu reporte ${post.id}.`,
+        post.id,
+      );
+    } catch (error) {
+      this.logger.warn(`No se pudo crear notificacion para post ${post.id}: ${error.message}`);
+    }
+
+    return updatedPost;
   }
 
   async markAsResolved(id: string, userId: string): Promise<Post> {
@@ -119,7 +138,21 @@ export class PostsService {
     }
 
     post.markAsResolved();
-    return await this.postRepository.update(id, post);
+    const updatedPost = await this.postRepository.update(id, post);
+
+    try {
+      await this.notificationsService.create(
+        post.userId,
+        NotificationType.UPDATE,
+        'Reporte marcado como resuelto',
+        `Tu reporte ${post.id} fue marcado como resuelto.`,
+        post.id,
+      );
+    } catch (error) {
+      this.logger.warn(`No se pudo crear notificacion para post ${post.id}: ${error.message}`);
+    }
+
+    return updatedPost;
   }
 
   async remove(id: string, userId: string): Promise<void> {

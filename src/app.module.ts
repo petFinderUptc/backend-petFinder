@@ -6,6 +6,7 @@ import { DatabaseModule } from './infrastructure/database';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { PostsModule } from './modules/posts/posts.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { PostsModule } from './modules/posts/posts.module';
     AuthModule,
     UsersModule,
     PostsModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [],
