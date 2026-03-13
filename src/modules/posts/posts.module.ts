@@ -1,15 +1,17 @@
 import { Module } from '@nestjs/common';
 import { PostsController } from '../../presentation/controllers';
 import { PostsService } from '../../application/services';
-import { InMemoryPostRepository } from '../../infrastructure/database/in-memory';
+import { CosmosDbPostRepository, DatabaseModule } from '../../infrastructure/database';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
+  imports: [DatabaseModule, NotificationsModule],
   controllers: [PostsController],
   providers: [
     PostsService,
     {
       provide: 'IPostRepository',
-      useClass: InMemoryPostRepository,
+      useClass: CosmosDbPostRepository,
     },
   ],
   exports: [PostsService],

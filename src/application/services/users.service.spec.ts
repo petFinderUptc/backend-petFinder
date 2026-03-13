@@ -2,22 +2,24 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { PasswordHashService } from './password-hash.service';
-import { IUserRepository } from '../../domain/repositories';
+import { IUserRepository, IPostRepository } from '../../domain/repositories';
 import { User } from '../../domain/entities';
 import { UserRole } from '../../domain/enums';
 
-const makeUser = (overrides: Partial<{
-  id: string;
-  email: string;
-  username: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-  role: UserRole;
-  isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}> = {}): User =>
+const makeUser = (
+  overrides: Partial<{
+    id: string;
+    email: string;
+    username: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+    role: UserRole;
+    isActive: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  }> = {},
+): User =>
   new User(
     overrides.id ?? 'user-1',
     overrides.email ?? 'test@example.com',
@@ -51,19 +53,33 @@ const mockPasswordHashService = () => ({
   needsRehash: jest.fn().mockReturnValue(false),
 });
 
+const mockPostRepository = (): jest.Mocked<IPostRepository> => ({
+  create: jest.fn(),
+  findById: jest.fn(),
+  findAll: jest.fn(),
+  findByFilters: jest.fn(),
+  findByUserId: jest.fn(),
+  update: jest.fn(),
+  delete: jest.fn(),
+  countActive: jest.fn(),
+});
+
 describe('UsersService', () => {
   let service: UsersService;
   let repo: jest.Mocked<IUserRepository>;
+  let postRepo: jest.Mocked<IPostRepository>;
   let passwordHash: ReturnType<typeof mockPasswordHashService>;
 
   beforeEach(async () => {
     repo = mockUserRepository();
+    postRepo = mockPostRepository();
     passwordHash = mockPasswordHashService();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
         { provide: 'IUserRepository', useValue: repo },
+        { provide: 'IPostRepository', useValue: postRepo },
         { provide: PasswordHashService, useValue: passwordHash },
       ],
     }).compile();
@@ -83,8 +99,18 @@ describe('UsersService', () => {
     it('should create a user successfully', async () => {
       repo.findByEmail.mockResolvedValue(null);
       repo.findByUsername.mockResolvedValue(null);
-      const savedUser = new User('user-2', dto.email, dto.username, 'hashed_password',
-        dto.firstName, dto.lastName, UserRole.USER, true, new Date(), new Date());
+      const savedUser = new User(
+        'user-2',
+        dto.email,
+        dto.username,
+        'hashed_password',
+        dto.firstName,
+        dto.lastName,
+        UserRole.USER,
+        true,
+        new Date(),
+        new Date(),
+      );
       repo.create.mockResolvedValue(savedUser);
 
       const result = await service.create(dto);

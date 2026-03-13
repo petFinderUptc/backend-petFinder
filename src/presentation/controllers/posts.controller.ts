@@ -9,10 +9,13 @@ import {
   Query,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
 import { PostsService } from '../../application/services';
 import { CreatePostDto, UpdatePostDto, FilterPostDto } from '../../application/dtos/posts';
 import { Post as PostEntity } from '../../domain/entities';
+import { JwtAuthGuard } from '../guards/jwt-auth.guard';
+import { CurrentUser, UserFromJwt } from '../decorators/current-user.decorator';
 
 @Controller('posts')
 export class PostsController {
@@ -20,9 +23,12 @@ export class PostsController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body() createPostDto: CreatePostDto): Promise<PostEntity> {
-    const mockUserId = 'current-user-id';
-    return this.postsService.create(mockUserId, createPostDto);
+  @UseGuards(JwtAuthGuard)
+  async create(
+    @CurrentUser() user: UserFromJwt,
+    @Body() createPostDto: CreatePostDto,
+  ): Promise<PostEntity> {
+    return this.postsService.create(user.id, createPostDto);
   }
 
   @Get()
@@ -31,9 +37,9 @@ export class PostsController {
   }
 
   @Get('my-posts')
-  async getMyPosts(): Promise<PostEntity[]> {
-    const mockUserId = 'current-user-id';
-    return this.postsService.findByUserId(mockUserId);
+  @UseGuards(JwtAuthGuard)
+  async getMyPosts(@CurrentUser() user: UserFromJwt): Promise<PostEntity[]> {
+    return this.postsService.findByUserId(user.id);
   }
 
   @Get(':id')
@@ -42,21 +48,28 @@ export class PostsController {
   }
 
   @Put(':id')
-  async update(@Param('id') id: string, @Body() updatePostDto: UpdatePostDto): Promise<PostEntity> {
-    const mockUserId = 'current-user-id';
-    return this.postsService.update(id, mockUserId, updatePostDto);
+  @UseGuards(JwtAuthGuard)
+  async update(
+    @Param('id') id: string,
+    @CurrentUser() user: UserFromJwt,
+    @Body() updatePostDto: UpdatePostDto,
+  ): Promise<PostEntity> {
+    return this.postsService.update(id, user.id, updatePostDto);
   }
 
   @Put(':id/resolve')
-  async markAsResolved(@Param('id') id: string): Promise<PostEntity> {
-    const mockUserId = 'current-user-id';
-    return this.postsService.markAsResolved(id, mockUserId);
+  @UseGuards(JwtAuthGuard)
+  async markAsResolved(
+    @Param('id') id: string,
+    @CurrentUser() user: UserFromJwt,
+  ): Promise<PostEntity> {
+    return this.postsService.markAsResolved(id, user.id);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Param('id') id: string): Promise<void> {
-    const mockUserId = 'current-user-id';
-    return this.postsService.remove(id, mockUserId);
+  @UseGuards(JwtAuthGuard)
+  async remove(@Param('id') id: string, @CurrentUser() user: UserFromJwt): Promise<void> {
+    return this.postsService.remove(id, user.id);
   }
 }
