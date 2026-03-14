@@ -4,6 +4,7 @@ import { Post } from '../../../domain/entities';
 import { PostStatus } from '../../../domain/enums';
 import { IPostRepository, PostFilters } from '../../../domain/repositories';
 import { CosmosDbService } from '../cosmosdb.service';
+import { PetReportDocument } from '../types/pet-report-document.type';
 
 @Injectable()
 export class CosmosDbPostRepository implements IPostRepository {
@@ -23,7 +24,8 @@ export class CosmosDbPostRepository implements IPostRepository {
       updatedAt: new Date(),
     });
 
-    const { resource } = await this.getContainer().items.create(newPost.toPlainObject());
+    const document = this.toDocument(newPost);
+    const { resource } = await this.getContainer().items.create(document);
     this.logger.log(`Post created in Cosmos DB: ${resource?.id}`);
     return this.toDomain(resource);
   }
@@ -119,7 +121,10 @@ export class CosmosDbPostRepository implements IPostRepository {
           : existing.location.toPlainObject(),
     };
 
-    const { resource } = await this.getContainer().item(id, id).replace(merged);
+    const normalizedPost = Post.fromPlainObject(merged);
+    const document = this.toDocument(normalizedPost);
+
+    const { resource } = await this.getContainer().item(id, id).replace(document);
     return this.toDomain(resource);
   }
 
@@ -139,12 +144,76 @@ export class CosmosDbPostRepository implements IPostRepository {
   }
 
   private toDomain(resource: any): Post {
+    const lat = this.resolveLat(resource);
+    const lon = this.resolveLon(resource);
+    const normalizedStatus = resource.isActive === false ? PostStatus.INACTIVE : resource.status;
+
     return Post.fromPlainObject({
       ...resource,
+      status: normalizedStatus,
+      petType: resource.petType ?? resource.species,
+      contactPhone: resource.contactPhone ?? resource.contact,
+      images: resource.images ?? (resource.imageUrl ? [resource.imageUrl] : []),
+      location: resource.location ?? {
+        city: 'N/A',
+        neighborhood: 'N/A',
+        coordinates: { latitude: lat, longitude: lon },
+      },
       lostOrFoundDate: new Date(resource.lostOrFoundDate),
       createdAt: new Date(resource.createdAt),
       updatedAt: new Date(resource.updatedAt),
     });
+  }
+
+  private toDocument(post: Post): PetReportDocument {
+    const plain = post.toPlainObject();
+    const lat = plain.location?.coordinates?.latitude ?? 0;
+    const lon = plain.location?.coordinates?.longitude ?? 0;
+    const imageUrl = plain.images?.[0] ?? '';
+
+    return {
+      id: plain.id,
+      userId: plain.userId,
+      species: plain.petType,
+      status: plain.status,
+      isActive: plain.status === PostStatus.ACTIVE,
+      description: plain.description,
+      color: plain.color,
+      breed: plain.breed ?? '',
+      size: plain.size,
+      contact: plain.contactPhone ?? plain.contactEmail ?? '',
+      imageUrl,
+      lat,
+      lon,
+      createdAt: new Date(plain.createdAt).toISOString(),
+      embedding: [],
+      type: plain.type,
+      petName: plain.petName,
+      petType: plain.petType,
+      age: plain.age,
+      images: plain.images,
+      location: plain.location,
+      contactPhone: plain.contactPhone,
+      contactEmail: plain.contactEmail,
+      lostOrFoundDate: new Date(plain.lostOrFoundDate).toISOString(),
+      updatedAt: new Date(plain.updatedAt).toISOString(),
+    };
+  }
+
+  private resolveLat(resource: any): number {
+    if (typeof resource?.lat === 'number') return resource.lat;
+    if (typeof resource?.location?.coordinates?.latitude === 'number') {
+      return resource.location.coordinates.latitude;
+    }
+    return 0;
+  }
+
+  private resolveLon(resource: any): number {
+    if (typeof resource?.lon === 'number') return resource.lon;
+    if (typeof resource?.location?.coordinates?.longitude === 'number') {
+      return resource.location.coordinates.longitude;
+    }
+    return 0;
   }
 
   private toPlainObject(postData: Partial<Post>): Record<string, unknown> {
