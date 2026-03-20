@@ -100,7 +100,7 @@ export class UsersController {
     FileInterceptor('avatar', {
       limits: { fileSize: 5 * 1024 * 1024 },
       fileFilter: (req, file, callback) => {
-        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png)$/)) {
           return callback(new Error('Solo se permiten imagenes'), false);
         }
         callback(null, true);

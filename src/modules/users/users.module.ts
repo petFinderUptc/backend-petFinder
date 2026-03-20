@@ -6,9 +6,10 @@ import {
   DatabaseModule,
   CosmosDbPostRepository,
 } from '../../infrastructure/database';
+import { AzureStorageModule } from '../../infrastructure/external-services/azure';
 
 @Module({
-  imports: [DatabaseModule],
+  imports: [DatabaseModule, AzureStorageModule],
   controllers: [UsersController],
   providers: [
     UsersService,

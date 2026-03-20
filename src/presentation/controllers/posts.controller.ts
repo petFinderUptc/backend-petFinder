@@ -13,45 +13,53 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { promises as fs } from 'node:fs';
-import * as path from 'node:path';
 import { PostsService } from '../../application/services';
 import { CreatePostDto, UpdatePostDto, FilterPostDto } from '../../application/dtos/posts';
 import { Post as PostEntity } from '../../domain/entities';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { CurrentUser, UserFromJwt } from '../decorators/current-user.decorator';
+import { AzureBlobStorageService } from '../../infrastructure/external-services/azure';
 
 @Controller('posts')
 export class PostsController {
-  constructor(private readonly postsService: PostsService) {}
+  constructor(
+    private readonly postsService: PostsService,
+    private readonly azureBlobStorageService: AzureBlobStorageService,
+  ) {}
 
   @Post('upload-image')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(
     FileInterceptor('image', {
-      limits: { fileSize: 8 * 1024 * 1024 },
+      limits: { fileSize: 5 * 1024 * 1024 },
       fileFilter: (req, file, callback) => {
-        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png)$/)) {
           return callback(new BadRequestException('Solo se permiten imagenes'), false);
         }
         callback(null, true);
       },
     }),
   )
-  async uploadImage(@UploadedFile() file: any): Promise<{ imageUrl: string }> {
+  async uploadImage(@UploadedFile() file: any): Promise<{ imageUrl: string; signedUrl?: string }> {
     if (!file) {
       throw new BadRequestException('Archivo de imagen requerido');
     }
-    const uploadBaseDir = process.env.UPLOAD_DIR || './uploads';
-    const postsDir = path.join(process.cwd(), uploadBaseDir, 'posts');
-    await fs.mkdir(postsDir, { recursive: true });
-    const extension = path.extname(file.originalname || '').toLowerCase() || '.jpg';
-    const filename = `post-${Date.now()}-${Math.round(Math.random() * 1e6)}${extension}`;
-    const filePath = path.join(postsDir, filename);
-    await fs.writeFile(filePath, file.buffer);
-    return { imageUrl: `/uploads/posts/${filename}` };
+
+    try {
+      const result = await this.azureBlobStorageService.uploadImage(file, 'posts');
+      return {
+        imageUrl: result.imageUrl,
+        signedUrl: result.signedUrl,
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('No fue posible cargar la imagen en este momento');
+    }
   }
 
   @Post()
