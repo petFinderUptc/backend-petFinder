@@ -43,14 +43,18 @@ export class PostsController {
       },
     }),
   )
-  async uploadImage(@UploadedFile() file: any): Promise<{ imageUrl: string; signedUrl?: string }> {
+  async uploadImage(
+    @CurrentUser() user: UserFromJwt,
+    @UploadedFile() file: any,
+  ): Promise<{ imageId: string; imageUrl: string; signedUrl?: string }> {
     if (!file) {
       throw new BadRequestException('Archivo de imagen requerido');
     }
 
     try {
-      const result = await this.azureBlobStorageService.uploadImage(file, 'posts');
+      const result = await this.azureBlobStorageService.uploadImage(file, 'posts', user.id);
       return {
+        imageId: result.imageId,
         imageUrl: result.imageUrl,
         signedUrl: result.signedUrl,
       };

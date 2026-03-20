@@ -11,8 +11,11 @@ import {
   StorageSharedKeyCredential,
   generateBlobSASQueryParameters,
 } from '@azure/storage-blob';
+import { CosmosDbService } from '../../database/cosmosdb.service';
+import { ImageDocument } from '../../database/types/image-document.type';
 
 export interface AzureImageUploadResult {
+  imageId: string;
   imageUrl: string;
   signedUrl?: string;
   blobName: string;
@@ -22,11 +25,15 @@ export interface AzureImageUploadResult {
 export class AzureBlobStorageService {
   private readonly logger = new Logger(AzureBlobStorageService.name);
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly cosmosDbService: CosmosDbService,
+  ) {}
 
   async uploadImage(
     file: any,
     folder: 'posts' | 'avatars' | 'reports' = 'posts',
+    userId = 'anonymous',
   ): Promise<AzureImageUploadResult> {
     if (!file) {
       throw new BadRequestException('Archivo de imagen requerido');
@@ -63,7 +70,43 @@ export class AzureBlobStorageService {
       const imageUrl = blockBlobClient.url;
       const signedUrl = this.buildReadSignedUrlIfConfigured(containerName, blobName, imageUrl);
 
+      const nowIso = new Date().toISOString();
+      const imageId = `img_${Date.now()}_${Math.round(Math.random() * 1e6)}`;
+
+      const imageDocument: ImageDocument = {
+        id: imageId,
+        userId,
+        folder,
+        containerName,
+        blobName,
+        imageUrl,
+        signedUrl,
+        contentType: file.mimetype,
+        size: Number(file.size || 0),
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        isActive: true,
+      };
+
+      try {
+        await this.cosmosDbService.getImagesContainer().items.create(imageDocument);
+      } catch (metadataError) {
+        // Revert blob upload if metadata cannot be persisted in DB.
+        try {
+          await containerClient.deleteBlob(blobName, { deleteSnapshots: 'include' });
+        } catch {
+          // best-effort cleanup
+        }
+        this.logger.error(
+          `Error guardando metadata de imagen en Cosmos DB: ${metadataError.message}`,
+        );
+        throw new InternalServerErrorException(
+          'No se pudo registrar la imagen en la base de datos',
+        );
+      }
+
       return {
+        imageId,
         imageUrl,
         signedUrl,
         blobName,
