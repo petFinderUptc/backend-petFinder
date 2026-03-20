@@ -10,6 +10,7 @@ export class CosmosDbService implements OnModuleInit {
   private usersContainer: Container;
   private postsContainer: Container;
   private notificationsContainer: Container;
+  private reportsContainer: Container;
 
   constructor(private configService: ConfigService) {}
 
@@ -120,6 +121,33 @@ export class CosmosDbService implements OnModuleInit {
     });
     this.notificationsContainer = notifications;
     this.logger.log('Container "notifications" ready');
+
+    const { container: reports } = await this.database.containers.createIfNotExists({
+      id: 'reports',
+      partitionKey: { paths: ['/id'] },
+      indexingPolicy: {
+        indexingMode: 'consistent',
+        automatic: true,
+        includedPaths: [{ path: '/*' }],
+        excludedPaths: [{ path: '/"_etag"/?' }],
+        compositeIndexes: [
+          [
+            { path: '/status', order: 'ascending' },
+            { path: '/createdAt', order: 'descending' },
+          ],
+          [
+            { path: '/userId', order: 'ascending' },
+            { path: '/createdAt', order: 'descending' },
+          ],
+          [
+            { path: '/species', order: 'ascending' },
+            { path: '/createdAt', order: 'descending' },
+          ],
+        ],
+      },
+    });
+    this.reportsContainer = reports;
+    this.logger.log('Container "reports" ready');
   }
 
   getClient(): CosmosClient {
@@ -155,6 +183,13 @@ export class CosmosDbService implements OnModuleInit {
       throw new Error('Notifications container not initialized');
     }
     return this.notificationsContainer;
+  }
+
+  getReportsContainer(): Container {
+    if (!this.reportsContainer) {
+      throw new Error('Reports container not initialized');
+    }
+    return this.reportsContainer;
   }
 
   getContainer(containerId: string): Container {

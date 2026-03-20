@@ -43,6 +43,9 @@ export class UsersService {
       new Date(),
       createUserDto.phoneNumber,
       createUserDto.profileImage,
+      createUserDto.city,
+      createUserDto.department,
+      createUserDto.bio,
     );
 
     const savedUser = await this.userRepository.create(user);
@@ -77,6 +80,9 @@ export class UsersService {
       lastName: updateUserDto.lastName,
       phoneNumber: updateUserDto.phoneNumber,
       profileImage: updateUserDto.profileImage,
+      city: updateUserDto.city,
+      department: updateUserDto.department,
+      bio: updateUserDto.bio,
     });
 
     const updatedUser = await this.userRepository.update(id, user);
@@ -118,6 +124,27 @@ export class UsersService {
 
     user.password = await this.passwordHashService.hash(newPassword);
     user.updatedAt = new Date();
+    await this.userRepository.update(userId, user);
+  }
+
+  async updatePasswordHash(userId: string, hashedPassword: string): Promise<void> {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    user.password = hashedPassword;
+    user.updatedAt = new Date();
+    await this.userRepository.update(userId, user);
+  }
+
+  async markEmailAsVerified(userId: string): Promise<void> {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    user.verifyEmail();
     await this.userRepository.update(userId, user);
   }
 
@@ -223,8 +250,13 @@ export class UsersService {
       username: user.username,
       firstName: user.firstName,
       lastName: user.lastName,
+      fullName: user.fullName,
       phoneNumber: user.phoneNumber,
       profileImage: user.profileImage,
+      city: user.city,
+      department: user.department,
+      fullLocation: user.fullLocation,
+      bio: user.bio,
       role: user.role,
       isActive: user.isActive,
       emailVerified: user.emailVerified || false,

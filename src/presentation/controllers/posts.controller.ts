@@ -10,16 +10,15 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
   BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { promises as fs } from 'node:fs';
+import * as path from 'node:path';
 import { PostsService } from '../../application/services';
-import {
-  CreatePostDto,
-  UpdatePostDto,
-  FilterPostDto,
-  CreatePetReportDto,
-  UpdatePetReportDto,
-} from '../../application/dtos/posts';
+import { CreatePostDto, UpdatePostDto, FilterPostDto } from '../../application/dtos/posts';
 import { Post as PostEntity } from '../../domain/entities';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { CurrentUser, UserFromJwt } from '../decorators/current-user.decorator';
@@ -28,55 +27,35 @@ import { CurrentUser, UserFromJwt } from '../decorators/current-user.decorator';
 export class PostsController {
   constructor(private readonly postsService: PostsService) {}
 
-  @Get('reports')
-  async getActiveReports(
-    @Query('page') page = '1',
-    @Query('limit') limit = '10',
-  ): Promise<{
-    data: PostEntity[];
-    pagination: {
-      page: number;
-      limit: number;
-      total: number;
-      totalPages: number;
-      hasNextPage: boolean;
-      hasPrevPage: boolean;
-    };
-  }> {
-    const parsedPage = Number(page);
-    const parsedLimit = Number(limit);
-
-    if (!Number.isInteger(parsedPage) || parsedPage < 1) {
-      throw new BadRequestException('El parametro page debe ser un entero mayor o igual a 1');
+  @Post('upload-image')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('image', {
+      limits: { fileSize: 8 * 1024 * 1024 },
+      fileFilter: (req, file, callback) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
+          return callback(new BadRequestException('Solo se permiten imagenes'), false);
+        }
+        callback(null, true);
+      },
+    }),
+  )
+  async uploadImage(@UploadedFile() file: any): Promise<{ imageUrl: string }> {
+    if (!file) {
+      throw new BadRequestException('Archivo de imagen requerido');
     }
 
-    if (!Number.isInteger(parsedLimit) || parsedLimit < 1 || parsedLimit > 100) {
-      throw new BadRequestException('El parametro limit debe ser un entero entre 1 y 100');
-    }
+    const uploadBaseDir = process.env.UPLOAD_DIR || './uploads';
+    const postsDir = path.join(process.cwd(), uploadBaseDir, 'posts');
+    await fs.mkdir(postsDir, { recursive: true });
 
-    return this.postsService.findActiveReportsPaginated(parsedPage, parsedLimit);
-  }
+    const extension = path.extname(file.originalname || '').toLowerCase() || '.jpg';
+    const filename = `post-${Date.now()}-${Math.round(Math.random() * 1e6)}${extension}`;
+    const filePath = path.join(postsDir, filename);
 
-  @Get('reports/:id')
-  async getReportById(@Param('id') id: string): Promise<PostEntity> {
-    return this.postsService.findActiveReportById(id);
-  }
+    await fs.writeFile(filePath, file.buffer);
 
-  @Put('reports/:id')
-  @UseGuards(JwtAuthGuard)
-  async updateReport(
-    @Param('id') id: string,
-    @CurrentUser() user: UserFromJwt,
-    @Body() updatePetReportDto: UpdatePetReportDto,
-  ): Promise<PostEntity> {
-    return this.postsService.updateReport(id, user.id, updatePetReportDto);
-  }
-
-  @Delete('reports/:id')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @UseGuards(JwtAuthGuard)
-  async removeReport(@Param('id') id: string, @CurrentUser() user: UserFromJwt): Promise<void> {
-    return this.postsService.removeReport(id, user.id);
+    return { imageUrl: `/uploads/posts/${filename}` };
   }
 
   @Post()
@@ -87,16 +66,6 @@ export class PostsController {
     @Body() createPostDto: CreatePostDto,
   ): Promise<PostEntity> {
     return this.postsService.create(user.id, createPostDto);
-  }
-
-  @Post('reports')
-  @HttpCode(HttpStatus.CREATED)
-  @UseGuards(JwtAuthGuard)
-  async createReport(
-    @CurrentUser() user: UserFromJwt,
-    @Body() createPetReportDto: CreatePetReportDto,
-  ): Promise<PostEntity> {
-    return this.postsService.createReport(user.id, createPetReportDto);
   }
 
   @Get()
