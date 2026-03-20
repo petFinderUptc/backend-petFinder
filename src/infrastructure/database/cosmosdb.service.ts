@@ -11,6 +11,7 @@ export class CosmosDbService implements OnModuleInit {
   private postsContainer: Container;
   private notificationsContainer: Container;
   private reportsContainer: Container;
+  private imagesContainer: Container;
 
   constructor(private configService: ConfigService) {}
 
@@ -148,6 +149,29 @@ export class CosmosDbService implements OnModuleInit {
     });
     this.reportsContainer = reports;
     this.logger.log('Container "reports" ready');
+
+    const { container: images } = await this.database.containers.createIfNotExists({
+      id: 'images',
+      partitionKey: { paths: ['/userId'] },
+      indexingPolicy: {
+        indexingMode: 'consistent',
+        automatic: true,
+        includedPaths: [{ path: '/*' }],
+        excludedPaths: [{ path: '/"_etag"/?' }],
+        compositeIndexes: [
+          [
+            { path: '/userId', order: 'ascending' },
+            { path: '/createdAt', order: 'descending' },
+          ],
+          [
+            { path: '/folder', order: 'ascending' },
+            { path: '/createdAt', order: 'descending' },
+          ],
+        ],
+      },
+    });
+    this.imagesContainer = images;
+    this.logger.log('Container "images" ready');
   }
 
   getClient(): CosmosClient {
@@ -190,6 +214,13 @@ export class CosmosDbService implements OnModuleInit {
       throw new Error('Reports container not initialized');
     }
     return this.reportsContainer;
+  }
+
+  getImagesContainer(): Container {
+    if (!this.imagesContainer) {
+      throw new Error('Images container not initialized');
+    }
+    return this.imagesContainer;
   }
 
   getContainer(containerId: string): Container {
