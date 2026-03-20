@@ -177,7 +177,7 @@ export class UsersService {
 
     await this.azureBlobStorageService.deleteBlobByUrl(user.profileImage);
 
-    const uploadResult = await this.azureBlobStorageService.uploadImage(file, 'avatars');
+    const uploadResult = await this.azureBlobStorageService.uploadImage(file, 'avatars', userId);
     user.updateProfile({ profileImage: uploadResult.imageUrl });
     await this.userRepository.update(userId, user);
 
