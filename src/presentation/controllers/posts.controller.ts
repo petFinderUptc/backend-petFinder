@@ -44,17 +44,13 @@ export class PostsController {
     if (!file) {
       throw new BadRequestException('Archivo de imagen requerido');
     }
-
     const uploadBaseDir = process.env.UPLOAD_DIR || './uploads';
     const postsDir = path.join(process.cwd(), uploadBaseDir, 'posts');
     await fs.mkdir(postsDir, { recursive: true });
-
     const extension = path.extname(file.originalname || '').toLowerCase() || '.jpg';
     const filename = `post-${Date.now()}-${Math.round(Math.random() * 1e6)}${extension}`;
     const filePath = path.join(postsDir, filename);
-
     await fs.writeFile(filePath, file.buffer);
-
     return { imageUrl: `/uploads/posts/${filename}` };
   }
 
