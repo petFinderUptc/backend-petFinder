@@ -11,7 +11,11 @@ import {
   Put,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  InternalServerErrorException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ReportsService } from '../../application/services/reports.service';
 import { CreateReportDto } from '../../application/dtos/reports/create-report.dto';
 import { UpdateReportDto } from '../../application/dtos/reports/update-report.dto';
@@ -19,10 +23,46 @@ import { Report } from '../../domain/entities/report.entity';
 import { PetSize, PetType, PostType } from '../../domain/enums';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { CurrentUser, UserFromJwt } from '../decorators/current-user.decorator';
+import { AzureBlobStorageService } from '../../infrastructure/external-services/azure';
 
 @Controller('reports')
 export class ReportsController {
-  constructor(private readonly reportsService: ReportsService) {}
+  constructor(
+    private readonly reportsService: ReportsService,
+    private readonly azureBlobStorageService: AzureBlobStorageService,
+  ) {}
+
+  @Post('upload-image')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('image', {
+      limits: { fileSize: 5 * 1024 * 1024 },
+      fileFilter: (req, file, callback) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png)$/)) {
+          return callback(new BadRequestException('Solo se permiten imagenes jpg y png'), false);
+        }
+        callback(null, true);
+      },
+    }),
+  )
+  async uploadImage(@UploadedFile() file: any): Promise<{ imageUrl: string; signedUrl?: string }> {
+    if (!file) {
+      throw new BadRequestException('Archivo de imagen requerido');
+    }
+
+    try {
+      const result = await this.azureBlobStorageService.uploadImage(file, 'reports');
+      return {
+        imageUrl: result.imageUrl,
+        signedUrl: result.signedUrl,
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('No fue posible cargar la imagen en este momento');
+    }
+  }
 
   /**
    * POST /reports

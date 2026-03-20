@@ -4,8 +4,7 @@ import { IUserRepository, IPostRepository } from '../../domain/repositories';
 import { User } from '../../domain/entities';
 import { UserRole, PostStatus } from '../../domain/enums';
 import { PasswordHashService } from './password-hash.service';
-import { promises as fs } from 'node:fs';
-import * as path from 'node:path';
+import { AzureBlobStorageService } from '../../infrastructure/external-services/azure';
 
 @Injectable()
 export class UsersService {
@@ -15,6 +14,7 @@ export class UsersService {
     @Inject('IPostRepository')
     private readonly postRepository: IPostRepository,
     private readonly passwordHashService: PasswordHashService,
+    private readonly azureBlobStorageService: AzureBlobStorageService,
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<UserResponseDto> {
@@ -175,23 +175,13 @@ export class UsersService {
       throw new NotFoundException('Usuario no encontrado');
     }
 
-    await this.deleteLocalAvatarIfExists(user.profileImage);
+    await this.azureBlobStorageService.deleteBlobByUrl(user.profileImage);
 
-    const uploadBaseDir = process.env.UPLOAD_DIR || './uploads';
-    const avatarDir = path.join(process.cwd(), uploadBaseDir, 'avatars');
-    await fs.mkdir(avatarDir, { recursive: true });
-
-    const extension = path.extname(file.originalname || '').toLowerCase() || '.jpg';
-    const filename = `avatar-${userId}-${Date.now()}${extension}`;
-    const filePath = path.join(avatarDir, filename);
-
-    await fs.writeFile(filePath, file.buffer);
-
-    const avatarUrl = `/uploads/avatars/${filename}`;
-    user.updateProfile({ profileImage: avatarUrl });
+    const uploadResult = await this.azureBlobStorageService.uploadImage(file, 'avatars');
+    user.updateProfile({ profileImage: uploadResult.imageUrl });
     await this.userRepository.update(userId, user);
 
-    return avatarUrl;
+    return uploadResult.signedUrl || uploadResult.imageUrl;
   }
 
   async deleteAvatar(userId: string): Promise<void> {
@@ -200,7 +190,7 @@ export class UsersService {
       throw new NotFoundException('Usuario no encontrado');
     }
 
-    await this.deleteLocalAvatarIfExists(user.profileImage);
+    await this.azureBlobStorageService.deleteBlobByUrl(user.profileImage);
     user.updateProfile({ profileImage: undefined });
     await this.userRepository.update(userId, user);
   }
@@ -222,25 +212,10 @@ export class UsersService {
       await this.postRepository.update(post.id, post);
     }
 
-    await this.deleteLocalAvatarIfExists(user.profileImage);
+    await this.azureBlobStorageService.deleteBlobByUrl(user.profileImage);
     user.deactivate();
     user.updateProfile({ profileImage: undefined });
     await this.userRepository.update(userId, user);
-  }
-
-  private async deleteLocalAvatarIfExists(profileImage?: string): Promise<void> {
-    if (!profileImage || !profileImage.startsWith('/uploads/')) {
-      return;
-    }
-
-    const relativePath = profileImage.replace(/^\//, '').replace(/\//g, path.sep);
-    const absolutePath = path.join(process.cwd(), relativePath);
-
-    try {
-      await fs.rm(absolutePath, { force: true });
-    } catch {
-      // Ignorar si el archivo no existe
-    }
   }
 
   private toResponseDto(user: User): UserResponseDto {
