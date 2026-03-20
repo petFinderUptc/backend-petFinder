@@ -153,6 +153,10 @@ export class ReportsService {
   }
 
   private validateImageUrl(imageUrl: string): void {
+    if (imageUrl.startsWith('/uploads/')) {
+      return;
+    }
+
     let url: URL;
     try {
       url = new URL(imageUrl);

@@ -11,6 +11,7 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
+  ForbiddenException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UsersService } from '../../application/services';
@@ -50,15 +51,23 @@ export class UsersController {
     return this.usersService.getUserStats(user.id);
   }
 
-  @Get(':id')
-  async findOne(@Param('id') id: string): Promise<UserResponseDto> {
-    return this.usersService.findOne(id);
-  }
-
   @Get('profile/me')
   @UseGuards(JwtAuthGuard)
   async getProfile(@CurrentUser() user: UserFromJwt): Promise<UserResponseDto> {
     return this.usersService.findOne(user.id);
+  }
+
+  @Get(':id')
+  @UseGuards(JwtAuthGuard)
+  async findOne(
+    @Param('id') id: string,
+    @CurrentUser() user: UserFromJwt,
+  ): Promise<UserResponseDto> {
+    const isAdmin = user.role === UserRole.ADMIN;
+    if (!isAdmin && user.id !== id) {
+      throw new ForbiddenException('No tienes permiso para consultar este usuario');
+    }
+    return this.usersService.findOne(id);
   }
 
   @Put('profile/me')
