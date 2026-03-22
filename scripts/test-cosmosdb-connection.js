@@ -1,6 +1,6 @@
 /**
  * Script de Verificación de Conexión a Azure Cosmos DB
- * 
+ *
  * Este script verifica que:
  * 1. Las credenciales de Cosmos DB son correctas
  * 2. La conexión a Azure funciona
@@ -109,21 +109,20 @@ async function testCosmosDBConnection() {
     log('🎉 ¡TODAS LAS PRUEBAS PASARON EXITOSAMENTE!', 'green');
     console.log('='.repeat(60));
     log('\n✅ Tu aplicación está lista para usar Azure Cosmos DB\n', 'green');
-    
+
     log('📊 Resumen de la configuración:', 'blue');
     log(`   • Endpoint: ${endpoint}`, 'blue');
     log(`   • Database: ${databaseId}`, 'blue');
     log(`   • Containers: users, posts`, 'blue');
     log(`   • Estado: Completamente funcional\n`, 'blue');
-
   } catch (error) {
     console.log('\n' + '='.repeat(60));
     log('❌ ERROR EN LA CONEXIÓN', 'red');
     console.log('='.repeat(60) + '\n');
-    
+
     log(`Tipo de error: ${error.code || 'UNKNOWN'}`, 'red');
     log(`Mensaje: ${error.message}\n`, 'red');
-    
+
     if (error.code === 'ENOTFOUND') {
       log('💡 Posible solución:', 'yellow');
       log('   - Verifica que el COSMOS_DB_ENDPOINT sea correcto', 'yellow');
@@ -143,7 +142,7 @@ async function testCosmosDBConnection() {
 }
 
 // Ejecutar la prueba
-testCosmosDBConnection().catch(error => {
+testCosmosDBConnection().catch((error) => {
   log('\n❌ Error inesperado:', 'red');
   console.error(error);
   process.exit(1);

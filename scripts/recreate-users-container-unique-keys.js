@@ -96,8 +96,9 @@ async function recreateUsersContainerWithUniqueKeys() {
     console.log('\n📝 Restricciones de unicidad activas:');
     console.log('   • /email - Unique (partition key + unique constraint)');
     console.log('   • /username - Unique (global en toda la database)');
-    console.log('\n💡 Intentos de crear documentos con email o username duplicados fallarán con error 409.');
-
+    console.log(
+      '\n💡 Intentos de crear documentos con email o username duplicados fallarán con error 409.',
+    );
   } catch (error) {
     console.error('\n❌ Error:', error.message);
     throw error;

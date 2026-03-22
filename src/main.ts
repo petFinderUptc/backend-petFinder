@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'node:path';
 import { AppModule } from './app.module';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -44,7 +45,7 @@ async function bootstrap() {
 
     // Configurar prefijo de API
     app.setGlobalPrefix(apiPrefix, {
-      exclude: ['/', 'health', 'info', 'db-health'],
+      exclude: ['/', 'health', 'info', 'db-health', 'api-docs'],
     });
 
     // Configurar validación global
@@ -56,6 +57,24 @@ async function bootstrap() {
       }),
     );
 
+    // Configurar Swagger
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('PetFinder API')
+      .setDescription('Documentación de la API del backend del sistema PetFinder')
+      .setVersion('1.0')
+      .addBearerAuth(
+        {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        },
+        'JWT',
+      )
+      .build();
+
+    const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('api-docs', app, swaggerDocument);
+
     // Iniciar servidor
     await app.listen(port, '0.0.0.0');
 
@@ -66,6 +85,7 @@ async function bootstrap() {
     logger.log(`📍 Health: http://localhost:${port}/health`);
     logger.log(`📍 Info: http://localhost:${port}/info`);
     logger.log(`📍 API: http://localhost:${port}/${apiPrefix}`);
+    logger.log(`📍 Swagger: http://localhost:${port}/api-docs`);
     logger.log('========================================');
   } catch (error) {
     logger.error('❌ Failed to start application', error.stack);

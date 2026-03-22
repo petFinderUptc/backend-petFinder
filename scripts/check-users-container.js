@@ -20,7 +20,7 @@ async function checkUsersContainer() {
 
     // Obtener información del contenedor
     const { resource: containerInfo } = await container.read();
-    
+
     console.log('📋 Configuración actual del contenedor:');
     console.log('   ID:', containerInfo.id);
     console.log('   Partition Key:', JSON.stringify(containerInfo.partitionKey, null, 2));
@@ -31,18 +31,18 @@ async function checkUsersContainer() {
     const { resources: items } = await container.items
       .query('SELECT VALUE COUNT(1) FROM c')
       .fetchAll();
-    
+
     const count = items[0] || 0;
     console.log(`📊 Total de documentos: ${count}`);
-    
+
     if (count > 0) {
       console.log('\n⚠️  El contenedor tiene datos. Se requiere migración.');
-      
+
       // Mostrar algunos documentos de ejemplo
       const { resources: samples } = await container.items
         .query('SELECT TOP 3 * FROM c')
         .fetchAll();
-      
+
       console.log('\n📄 Documentos de ejemplo:');
       samples.forEach((doc, i) => {
         console.log(`   ${i + 1}.`, JSON.stringify(doc, null, 2));
@@ -50,7 +50,6 @@ async function checkUsersContainer() {
     } else {
       console.log('✅ El contenedor está vacío. Seguro para eliminar y recrear.');
     }
-
   } catch (error) {
     if (error.code === 404) {
       console.log('❌ El contenedor "users" no existe aún.');

@@ -1,6 +1,6 @@
 /**
  * Script de Prueba de Endpoints de Health Check
- * 
+ *
  * Verifica que todos los endpoints de health funcionan correctamente,
  * incluyendo el nuevo endpoint de database health.
  */
@@ -78,12 +78,12 @@ async function runTests() {
 
   for (const endpoint of endpoints) {
     log(`Testing: ${endpoint.name} (${endpoint.path})`, 'yellow');
-    
+
     const result = await testEndpoint(endpoint);
-    
+
     if (result.success && result.status === 200) {
       log(`✅ SUCCESS - Status: ${result.status}`, 'green');
-      
+
       // Mostrar información relevante según el endpoint
       if (endpoint.path === '/api/v1/db-health') {
         log(`   Database Status: ${result.data.status}`, 'blue');
@@ -101,7 +101,7 @@ async function runTests() {
     } else {
       log(`❌ FAILED - ${result.error || 'Status: ' + result.status}`, 'red');
     }
-    
+
     console.log('');
   }
 
@@ -111,7 +111,7 @@ async function runTests() {
 }
 
 // Ejecutar tests
-runTests().catch(error => {
+runTests().catch((error) => {
   log('\n❌ Error running tests:', 'red');
   console.error(error);
   process.exit(1);
