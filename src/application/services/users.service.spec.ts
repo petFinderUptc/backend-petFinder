@@ -5,6 +5,7 @@ import { PasswordHashService } from './password-hash.service';
 import { IUserRepository, IPostRepository } from '../../domain/repositories';
 import { User } from '../../domain/entities';
 import { UserRole } from '../../domain/enums';
+import { AzureBlobStorageService } from '../../infrastructure/external-services/azure';
 
 const makeUser = (
   overrides: Partial<{
@@ -64,16 +65,27 @@ const mockPostRepository = (): jest.Mocked<IPostRepository> => ({
   countActive: jest.fn(),
 });
 
+const mockAzureBlobStorageService = () => ({
+  uploadImage: jest.fn().mockResolvedValue({
+    imageUrl: 'https://storage.blob.core.windows.net/pet-images/avatars/test.jpg',
+    signedUrl: 'https://storage.blob.core.windows.net/pet-images/avatars/test.jpg?sig=dummy',
+    blobName: 'avatars/test.jpg',
+  }),
+  deleteBlobByUrl: jest.fn().mockResolvedValue(undefined),
+});
+
 describe('UsersService', () => {
   let service: UsersService;
   let repo: jest.Mocked<IUserRepository>;
   let postRepo: jest.Mocked<IPostRepository>;
   let passwordHash: ReturnType<typeof mockPasswordHashService>;
+  let azureBlobStorage: ReturnType<typeof mockAzureBlobStorageService>;
 
   beforeEach(async () => {
     repo = mockUserRepository();
     postRepo = mockPostRepository();
     passwordHash = mockPasswordHashService();
+    azureBlobStorage = mockAzureBlobStorageService();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -81,6 +93,7 @@ describe('UsersService', () => {
         { provide: 'IUserRepository', useValue: repo },
         { provide: 'IPostRepository', useValue: postRepo },
         { provide: PasswordHashService, useValue: passwordHash },
+        { provide: AzureBlobStorageService, useValue: azureBlobStorage },
       ],
     }).compile();
 

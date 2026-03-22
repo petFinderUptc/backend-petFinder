@@ -11,6 +11,7 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -78,18 +79,6 @@ export class UsersController {
     return this.usersService.getUserStats(user.id);
   }
 
-  @Get(':id')
-  @ApiOperation({
-    summary: 'Obtener usuario por id',
-    description: 'Retorna el detalle de un usuario',
-  })
-  @ApiParam({ name: 'id', description: 'ID del usuario', type: String })
-  @ApiResponse({ status: 200, description: 'Usuario encontrado', type: UserResponseDto })
-  @ApiResponse({ status: 404, description: 'Usuario no encontrado' })
-  async findOne(@Param('id') id: string): Promise<UserResponseDto> {
-    return this.usersService.findOne(id);
-  }
-
   @Get('profile/me')
   @UseGuards(JwtAuthGuard)
   @ApiOperation({
@@ -100,6 +89,27 @@ export class UsersController {
   @ApiResponse({ status: 401, description: 'No autorizado' })
   async getProfile(@CurrentUser() user: UserFromJwt): Promise<UserResponseDto> {
     return this.usersService.findOne(user.id);
+  }
+
+  @Get(':id')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Obtener usuario por id',
+    description: 'Retorna el detalle de un usuario',
+  })
+  @ApiParam({ name: 'id', description: 'ID del usuario', type: String })
+  @ApiResponse({ status: 200, description: 'Usuario encontrado', type: UserResponseDto })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
+  @ApiResponse({ status: 403, description: 'No permitido' })
+  async findOne(
+    @Param('id') id: string,
+    @CurrentUser() user: UserFromJwt,
+  ): Promise<UserResponseDto> {
+    const isAdmin = user.role === UserRole.ADMIN;
+    if (!isAdmin && user.id !== id) {
+      throw new ForbiddenException('No tienes permiso para consultar este usuario');
+    }
+    return this.usersService.findOne(id);
   }
 
   @Put('profile/me')
@@ -168,7 +178,7 @@ export class UsersController {
     FileInterceptor('avatar', {
       limits: { fileSize: 5 * 1024 * 1024 },
       fileFilter: (req, file, callback) => {
-        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png)$/)) {
           return callback(new Error('Solo se permiten imagenes'), false);
         }
         callback(null, true);

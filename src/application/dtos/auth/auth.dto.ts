@@ -5,7 +5,7 @@
  */
 
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsString, MinLength, MaxLength, Matches } from 'class-validator';
+import { IsEmail, IsString, MinLength, MaxLength, Matches, IsOptional } from 'class-validator';
 
 /**
  * DTO para registro de usuario
@@ -53,6 +53,40 @@ export class LoginDto {
   @IsString()
   @MinLength(8)
   password: string;
+}
+
+export class RefreshTokenDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(10)
+  token?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(10)
+  refreshToken?: string;
+}
+
+export class ForgotPasswordDto {
+  @IsEmail({}, { message: 'Email debe ser válido' })
+  email: string;
+}
+
+export class ResetPasswordDto {
+  @IsString()
+  @MinLength(10)
+  token: string;
+
+  @IsString()
+  @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres' })
+  @MaxLength(50)
+  newPassword: string;
+}
+
+export class VerifyEmailDto {
+  @IsString()
+  @MinLength(10)
+  token: string;
 }
 
 /**
