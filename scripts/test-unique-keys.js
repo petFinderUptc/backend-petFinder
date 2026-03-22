@@ -140,7 +140,6 @@ async function testUniqueKeys() {
     console.log('   ✓ Email: Garantiza que no haya emails duplicados');
     console.log('   ✓ Username: Garantiza que no haya usernames duplicados');
     console.log('   ✓ Ambos funcionan correctamente rechazando duplicados con error 409');
-
   } catch (error) {
     console.error('\n❌ Error en tests:', error.message);
     throw error;

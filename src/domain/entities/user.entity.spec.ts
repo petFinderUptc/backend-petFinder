@@ -1,18 +1,20 @@
 import { User } from './user.entity';
 import { UserRole } from '../enums/user-role.enum';
 
-const makeUser = (overrides: Partial<{
-  id: string;
-  email: string;
-  username: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-  role: UserRole;
-  isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}> = {}) =>
+const makeUser = (
+  overrides: Partial<{
+    id: string;
+    email: string;
+    username: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+    role: UserRole;
+    isActive: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  }> = {},
+) =>
   new User(
     overrides.id ?? 'user-1',
     overrides.email ?? 'test@example.com',
@@ -36,33 +38,92 @@ describe('User Entity', () => {
     });
 
     it('should throw if email is invalid', () => {
-      expect(() =>
-        new User('1', 'not-an-email', 'user', 'pass', 'A', 'B', UserRole.USER, true, new Date(), new Date()),
+      expect(
+        () =>
+          new User(
+            '1',
+            'not-an-email',
+            'user',
+            'pass',
+            'A',
+            'B',
+            UserRole.USER,
+            true,
+            new Date(),
+            new Date(),
+          ),
       ).toThrow('Email inválido');
     });
 
     it('should throw if username has invalid characters', () => {
-      expect(() =>
-        new User('1', 'a@b.com', 'user@#!', 'pass', 'A', 'B', UserRole.USER, true, new Date(), new Date()),
+      expect(
+        () =>
+          new User(
+            '1',
+            'a@b.com',
+            'user@#!',
+            'pass',
+            'A',
+            'B',
+            UserRole.USER,
+            true,
+            new Date(),
+            new Date(),
+          ),
       ).toThrow('Username inválido');
     });
 
     it('should throw if username is too short', () => {
-      expect(() =>
-        new User('1', 'a@b.com', 'ab', 'pass', 'A', 'B', UserRole.USER, true, new Date(), new Date()),
+      expect(
+        () =>
+          new User(
+            '1',
+            'a@b.com',
+            'ab',
+            'pass',
+            'A',
+            'B',
+            UserRole.USER,
+            true,
+            new Date(),
+            new Date(),
+          ),
       ).toThrow('Username inválido');
     });
 
     it('should throw if firstName is empty', () => {
-      expect(() =>
-        new User('1', 'a@b.com', 'validuser', 'pass', '', 'B', UserRole.USER, true, new Date(), new Date()),
+      expect(
+        () =>
+          new User(
+            '1',
+            'a@b.com',
+            'validuser',
+            'pass',
+            '',
+            'B',
+            UserRole.USER,
+            true,
+            new Date(),
+            new Date(),
+          ),
       ).toThrow('El nombre es requerido');
     });
   });
 
   describe('role checks', () => {
     it('should return true for isAdmin when role is ADMIN', () => {
-      const user = new User('1', 'a@b.com', 'admin', 'pass', 'A', 'B', UserRole.ADMIN, true, new Date(), new Date());
+      const user = new User(
+        '1',
+        'a@b.com',
+        'admin',
+        'pass',
+        'A',
+        'B',
+        UserRole.ADMIN,
+        true,
+        new Date(),
+        new Date(),
+      );
       expect(user.isAdmin()).toBe(true);
     });
 
@@ -72,7 +133,18 @@ describe('User Entity', () => {
     });
 
     it('should return true for isModerator when role is MODERATOR', () => {
-      const user = new User('1', 'a@b.com', 'mod', 'pass', 'A', 'B', UserRole.MODERATOR, true, new Date(), new Date());
+      const user = new User(
+        '1',
+        'a@b.com',
+        'mod',
+        'pass',
+        'A',
+        'B',
+        UserRole.MODERATOR,
+        true,
+        new Date(),
+        new Date(),
+      );
       expect(user.isModerator()).toBe(true);
     });
   });

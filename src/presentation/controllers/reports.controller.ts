@@ -12,6 +12,15 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiQuery,
+  ApiParam,
+  ApiBody,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { ReportsService } from '../../application/services/reports.service';
 import { CreateReportDto } from '../../application/dtos/reports/create-report.dto';
 import { UpdateReportDto } from '../../application/dtos/reports/update-report.dto';
@@ -20,6 +29,8 @@ import { PetSize, PetType, PostType } from '../../domain/enums';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { CurrentUser, UserFromJwt } from '../decorators/current-user.decorator';
 
+@ApiTags('Reports')
+@ApiBearerAuth('JWT')
 @Controller('reports')
 export class ReportsController {
   constructor(private readonly reportsService: ReportsService) {}
@@ -31,6 +42,13 @@ export class ReportsController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Crear reporte',
+    description: 'Crea un nuevo reporte de mascota (requiere JWT)',
+  })
+  @ApiBody({ type: CreateReportDto })
+  @ApiResponse({ status: 201, description: 'Reporte creado', type: Report })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
   async create(
     @CurrentUser() user: UserFromJwt,
     @Body() createReportDto: CreateReportDto,
@@ -44,6 +62,21 @@ export class ReportsController {
    * Query params: page, limit, species, type, size
    */
   @Get()
+  @ApiOperation({
+    summary: 'Listar reportes',
+    description: 'Listado público de reportes con paginación y filtros',
+  })
+  @ApiQuery({ name: 'page', required: false, description: 'Número de página', type: Number })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Cantidad de items por página',
+    type: Number,
+  })
+  @ApiQuery({ name: 'species', required: false, description: 'Tipo de mascota', enum: PetType })
+  @ApiQuery({ name: 'type', required: false, description: 'Tipo de publicación', enum: PostType })
+  @ApiQuery({ name: 'size', required: false, description: 'Tamaño mascota', enum: PetSize })
+  @ApiResponse({ status: 200, description: 'Listado obtenido', type: [Report] })
   async findAll(
     @Query('page') page = '1',
     @Query('limit') limit = '10',
@@ -80,6 +113,12 @@ export class ReportsController {
    */
   @Get('my-reports')
   @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Mis reportes',
+    description: 'Retorna reportes del usuario autenticado',
+  })
+  @ApiResponse({ status: 200, description: 'Reportes devueltos', type: [Report] })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
   async findMyReports(@CurrentUser() user: UserFromJwt): Promise<Report[]> {
     return this.reportsService.findMyReports(user.id);
   }
@@ -89,6 +128,13 @@ export class ReportsController {
    * Detalle público de un reporte activo. 404 si está inactivo o no existe.
    */
   @Get(':id')
+  @ApiOperation({
+    summary: 'Reporte por id',
+    description: 'Obtiene información de un reporte por su id',
+  })
+  @ApiParam({ name: 'id', description: 'ID del reporte', type: String })
+  @ApiResponse({ status: 200, description: 'Reporte encontrado', type: Report })
+  @ApiResponse({ status: 404, description: 'Reporte no encontrado' })
   async findOne(@Param('id') id: string): Promise<Report> {
     return this.reportsService.findById(id);
   }
@@ -99,6 +145,12 @@ export class ReportsController {
    */
   @Put(':id')
   @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Actualizar reporte', description: 'Edita un reporte propio' })
+  @ApiParam({ name: 'id', description: 'ID del reporte', type: String })
+  @ApiBody({ type: UpdateReportDto })
+  @ApiResponse({ status: 200, description: 'Reporte actualizado', type: Report })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
+  @ApiResponse({ status: 403, description: 'No permitido' })
   async update(
     @Param('id') id: string,
     @CurrentUser() user: UserFromJwt,
@@ -114,6 +166,14 @@ export class ReportsController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Eliminar reporte',
+    description: 'Elimina lógicamente un reporte propio',
+  })
+  @ApiParam({ name: 'id', description: 'ID del reporte', type: String })
+  @ApiResponse({ status: 204, description: 'Reporte eliminado' })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
+  @ApiResponse({ status: 403, description: 'No permitido' })
   async remove(@Param('id') id: string, @CurrentUser() user: UserFromJwt): Promise<void> {
     return this.reportsService.removeReport(id, user.id);
   }

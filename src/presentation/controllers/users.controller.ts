@@ -12,6 +12,7 @@ import {
   UseInterceptors,
   UploadedFile,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiBody, ApiResponse } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UsersService } from '../../application/services';
 import {
@@ -28,11 +29,17 @@ import { Roles } from '../decorators/roles.decorator';
 import { CurrentUser, UserFromJwt } from '../decorators/current-user.decorator';
 import { UserRole } from '../../domain/enums';
 
+@ApiTags('Users')
+@ApiBearerAuth('JWT')
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
+  @ApiOperation({ summary: 'Crear usuario', description: 'Registra un nuevo usuario' })
+  @ApiBody({ type: CreateUserDto })
+  @ApiResponse({ status: 201, description: 'Usuario creado', type: UserResponseDto })
+  @ApiResponse({ status: 400, description: 'Datos inválidos' })
   async create(@Body() createUserDto: CreateUserDto): Promise<UserResponseDto> {
     return this.usersService.create(createUserDto);
   }
@@ -40,12 +47,25 @@ export class UsersController {
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Listar usuarios',
+    description: 'Retorna todos los usuarios (solo ADMIN)',
+  })
+  @ApiResponse({ status: 200, description: 'Lista de usuarios', type: [UserResponseDto] })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
+  @ApiResponse({ status: 403, description: 'Acceso denegado' })
   async findAll(): Promise<UserResponseDto[]> {
     return this.usersService.findAll();
   }
 
   @Get('stats')
   @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Estadísticas de usuario',
+    description: 'Retorna estadísticas del usuario autenticado',
+  })
+  @ApiResponse({ status: 200, description: 'Estadísticas', type: UserStatsDto })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
   async getStats(@CurrentUser() user: UserFromJwt): Promise<UserStatsDto> {
     return this.usersService.getUserStats(user.id);
   }

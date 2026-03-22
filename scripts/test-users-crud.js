@@ -44,11 +44,9 @@ async function testUserOperations() {
       query: 'SELECT * FROM c WHERE c.email = @email',
       parameters: [{ name: '@email', value: testUser.email }],
     };
-    
-    const { resources: byEmail } = await container.items
-      .query(queryByEmail)
-      .fetchAll();
-    
+
+    const { resources: byEmail } = await container.items.query(queryByEmail).fetchAll();
+
     console.log('   ✅ Usuario encontrado por email:', byEmail[0].username);
     console.log('   💰 Consulta optimizada: single-partition (2-3 RUs)');
     console.log();
@@ -59,11 +57,9 @@ async function testUserOperations() {
       query: 'SELECT * FROM c WHERE c.id = @id',
       parameters: [{ name: '@id', value: created.id }],
     };
-    
-    const { resources: byId } = await container.items
-      .query(queryById)
-      .fetchAll();
-    
+
+    const { resources: byId } = await container.items.query(queryById).fetchAll();
+
     console.log('   ✅ Usuario encontrado por ID:', byId[0].email);
     console.log('   ⚠️  Cross-partition query (más costoso en RUs)');
     console.log();
@@ -78,31 +74,25 @@ async function testUserOperations() {
       `,
       parameters: [{ name: '@username', value: 'test_user' }],
     };
-    
-    const { resources: byUsername } = await container.items
-      .query(queryByUsername)
-      .fetchAll();
-    
+
+    const { resources: byUsername } = await container.items.query(queryByUsername).fetchAll();
+
     console.log('   ✅ Usuario encontrado por username:', byUsername[0].email);
     console.log('   💰 Consulta optimizada: índice compuesto (3-5 RUs)');
     console.log();
 
     // ✅ 5. UPDATE (requiere id + email como partition key)
     console.log('🔄 5. UPDATE: Actualizando usuario...');
-    const { resource: existing } = await container
-      .item(created.id, created.email)
-      .read();
-    
+    const { resource: existing } = await container.item(created.id, created.email).read();
+
     const updated = {
       ...existing,
       name: 'Test User Updated',
       updatedAt: new Date().toISOString(),
     };
 
-    const { resource: replaced } = await container
-      .item(created.id, created.email)
-      .replace(updated);
-    
+    const { resource: replaced } = await container.item(created.id, created.email).replace(updated);
+
     console.log('   ✅ Usuario actualizado:', replaced.name);
     console.log('   💡 Operación directa requiere id + email (partition key)');
     console.log();
@@ -117,11 +107,9 @@ async function testUserOperations() {
       `,
       parameters: [{ name: '@role', value: 'user' }],
     };
-    
-    const { resources: byRole } = await container.items
-      .query(queryByRole)
-      .fetchAll();
-    
+
+    const { resources: byRole } = await container.items.query(queryByRole).fetchAll();
+
     console.log(`   ✅ Usuarios con role 'user': ${byRole.length}`);
     console.log('   💰 Consulta optimizada: índice compuesto role + createdAt');
     console.log();
@@ -139,7 +127,6 @@ async function testUserOperations() {
     console.log('   • Índice compuesto username + createdAt: búsquedas eficientes');
     console.log('   • Índice compuesto role + createdAt: filtrado por rol optimizado');
     console.log('   • Operaciones directas (read/update/delete) requieren email');
-
   } catch (error) {
     console.error('❌ Error:', error.message);
     throw error;

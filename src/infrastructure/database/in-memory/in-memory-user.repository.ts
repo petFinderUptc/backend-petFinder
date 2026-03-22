@@ -1,4 +1,3 @@
-
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { IUserRepository } from '../../../domain/repositories';
 import { User } from '../../../domain/entities';

@@ -45,7 +45,7 @@ async function testRegister(testName, payload, expectedStatus) {
  */
 async function runTests() {
   console.log('🚀 Iniciando pruebas del endpoint de registro\n');
-  console.log('=' .repeat(60));
+  console.log('='.repeat(60));
 
   // Test 1: Registro exitoso
   await testRegister(
@@ -57,7 +57,7 @@ async function runTests() {
       firstName: 'Juan',
       lastName: 'Pérez',
     },
-    201 // Código esperado: Created
+    201, // Código esperado: Created
   );
 
   // Esperar un poco para que se procese
@@ -73,7 +73,7 @@ async function runTests() {
       firstName: 'Otro',
       lastName: 'Usuario',
     },
-    400 // Código esperado: Bad Request
+    400, // Código esperado: Bad Request
   );
 
   // Test 3: Username duplicado
@@ -86,7 +86,7 @@ async function runTests() {
       firstName: 'Otro',
       lastName: 'Usuario',
     },
-    400 // Código esperado: Bad Request
+    400, // Código esperado: Bad Request
   );
 
   // Test 4: Email inválido
@@ -99,7 +99,7 @@ async function runTests() {
       firstName: 'Test',
       lastName: 'User',
     },
-    400 // Código esperado: Bad Request
+    400, // Código esperado: Bad Request
   );
 
   // Test 5: Username con caracteres inválidos
@@ -112,7 +112,7 @@ async function runTests() {
       firstName: 'Test',
       lastName: 'User',
     },
-    400 // Código esperado: Bad Request
+    400, // Código esperado: Bad Request
   );
 
   // Test 6: Contraseña muy corta
@@ -125,7 +125,7 @@ async function runTests() {
       firstName: 'Test',
       lastName: 'User',
     },
-    400 // Código esperado: Bad Request
+    400, // Código esperado: Bad Request
   );
 
   // Test 7: Campos faltantes
@@ -136,7 +136,7 @@ async function runTests() {
       // username faltante
       password: 'Password123!',
     },
-    400 // Código esperado: Bad Request
+    400, // Código esperado: Bad Request
   );
 
   console.log('\n' + '='.repeat(60));
