@@ -59,6 +59,18 @@ export class RefreshTokenDto {
   refreshToken?: string;
 }
 
+export class LogoutDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(10)
+  token?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(10)
+  refreshToken?: string;
+}
+
 export class ForgotPasswordDto {
   @IsEmail({}, { message: 'Email debe ser válido' })
   email: string;
@@ -86,6 +98,8 @@ export class VerifyEmailDto {
  */
 export class AuthResponseDto {
   accessToken: string;
+  refreshToken?: string;
+  tokenType?: 'Bearer';
   user: {
     id: string;
     email: string;

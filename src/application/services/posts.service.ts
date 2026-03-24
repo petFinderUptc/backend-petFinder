@@ -1,4 +1,11 @@
-import { Injectable, NotFoundException, ForbiddenException, Inject, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  Inject,
+  Logger,
+  BadRequestException,
+} from '@nestjs/common';
 import { CreatePostDto, UpdatePostDto, FilterPostDto } from '../dtos/posts';
 import { IPostRepository, PostFilters } from '../../domain/repositories';
 import { Post } from '../../domain/entities';
@@ -18,6 +25,8 @@ export class PostsService {
   ) {}
 
   async create(userId: string, createPostDto: CreatePostDto): Promise<Post> {
+    this.validateImageUrls(createPostDto.images);
+
     const location = new Location(
       createPostDto.location.city,
       createPostDto.location.neighborhood,
@@ -87,6 +96,8 @@ export class PostsService {
     if (post.userId !== userId) {
       throw new ForbiddenException('No tienes permiso para actualizar esta publicación');
     }
+
+    this.validateImageUrls(updatePostDto.images);
 
     let location: Location | undefined;
     if (updatePostDto.location) {
@@ -172,5 +183,24 @@ export class PostsService {
   async getStats(): Promise<{ totalActive: number }> {
     const totalActive = await this.postRepository.countActive();
     return { totalActive };
+  }
+
+  private validateImageUrls(images?: string[]): void {
+    if (!images || images.length === 0) {
+      return;
+    }
+
+    for (const imageUrl of images) {
+      let parsedUrl: URL;
+      try {
+        parsedUrl = new URL(imageUrl);
+      } catch {
+        throw new BadRequestException('Formato de URL de imagen invalido');
+      }
+
+      if (!parsedUrl.hostname.includes('blob.core.windows.net')) {
+        throw new BadRequestException('Las imagenes deben almacenarse en Azure Blob Storage');
+      }
+    }
   }
 }

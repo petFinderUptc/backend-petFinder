@@ -1,4 +1,13 @@
-import { IsEnum, IsNumber, IsString, IsUrl, Max, Min, MinLength } from 'class-validator';
+import {
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUrl,
+  Max,
+  Min,
+  MinLength,
+} from 'class-validator';
 import { PetSize, PetType, PostStatus, PostType } from '../../../domain/enums';
 
 export class CreateReportDto {
@@ -8,8 +17,9 @@ export class CreateReportDto {
   @IsEnum(PostType)
   type: PostType;
 
+  @IsOptional()
   @IsEnum(PostStatus)
-  status: PostStatus;
+  status?: PostStatus;
 
   @IsString()
   @MinLength(10)
@@ -33,13 +43,20 @@ export class CreateReportDto {
   @IsUrl({ require_protocol: true })
   imageUrl: string;
 
+  @IsOptional()
   @IsNumber()
   @Min(-90)
   @Max(90)
-  lat: number;
+  lat?: number;
 
+  @IsOptional()
   @IsNumber()
   @Min(-180)
   @Max(180)
-  lon: number;
+  lon?: number;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(5)
+  locationQuery?: string;
 }

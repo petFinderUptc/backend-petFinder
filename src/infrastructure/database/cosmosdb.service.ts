@@ -12,6 +12,7 @@ export class CosmosDbService implements OnModuleInit {
   private notificationsContainer: Container;
   private reportsContainer: Container;
   private imagesContainer: Container;
+  private sessionsContainer: Container;
 
   constructor(private configService: ConfigService) {}
 
@@ -172,6 +173,29 @@ export class CosmosDbService implements OnModuleInit {
     });
     this.imagesContainer = images;
     this.logger.log('Container "images" ready');
+
+    const { container: sessions } = await this.database.containers.createIfNotExists({
+      id: 'auth_sessions',
+      partitionKey: { paths: ['/userId'] },
+      indexingPolicy: {
+        indexingMode: 'consistent',
+        automatic: true,
+        includedPaths: [{ path: '/*' }],
+        excludedPaths: [{ path: '/"_etag"/?' }],
+        compositeIndexes: [
+          [
+            { path: '/userId', order: 'ascending' },
+            { path: '/createdAt', order: 'descending' },
+          ],
+          [
+            { path: '/isRevoked', order: 'ascending' },
+            { path: '/expiresAt', order: 'ascending' },
+          ],
+        ],
+      },
+    });
+    this.sessionsContainer = sessions;
+    this.logger.log('Container "auth_sessions" ready');
   }
 
   getClient(): CosmosClient {
@@ -221,6 +245,13 @@ export class CosmosDbService implements OnModuleInit {
       throw new Error('Images container not initialized');
     }
     return this.imagesContainer;
+  }
+
+  getSessionsContainer(): Container {
+    if (!this.sessionsContainer) {
+      throw new Error('Sessions container not initialized');
+    }
+    return this.sessionsContainer;
   }
 
   getContainer(containerId: string): Container {

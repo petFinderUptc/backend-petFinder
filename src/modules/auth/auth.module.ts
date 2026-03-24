@@ -6,6 +6,7 @@ import { AuthController } from '../../presentation/controllers';
 import { AuthService } from '../../application/services';
 import { UsersModule } from '../users/users.module';
 import { JwtStrategy } from '../../presentation/strategies/jwt.strategy';
+import { RefreshTokenSessionService } from '../../application/services/refresh-token-session.service';
 
 @Module({
   imports: [
@@ -23,7 +24,7 @@ import { JwtStrategy } from '../../presentation/strategies/jwt.strategy';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy, RefreshTokenSessionService],
   exports: [AuthService, JwtModule, PassportModule],
 })
 export class AuthModule {}
