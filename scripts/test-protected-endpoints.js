@@ -1,15 +1,15 @@
 /**
  * Script de prueba para endpoints protegidos con autenticación JWT
- * 
+ *
  * Este script demuestra:
  * - Registro de usuario
  * - Login y obtención de token JWT
  * - Acceso a endpoints protegidos con token
  * - Acceso a endpoints solo para ADMIN
  * - Manejo de errores 401 (no autenticado) y 403 (sin permisos)
- * 
+ *
  * Asegúrate de tener el servidor corriendo: npm run start:dev
- * 
+ *
  * Uso: node scripts/test-protected-endpoints.js
  */
 
@@ -39,7 +39,7 @@ async function makeRequest(method, path, data = null, token = null) {
   try {
     const response = await fetch(`${baseUrl}${path}`, options);
     const status = response.status;
-    
+
     let responseData;
     try {
       responseData = await response.json();
@@ -66,7 +66,7 @@ async function runTests() {
   // Test 1: Registrar un nuevo usuario
   console.log('\n📝 Test 1: Registrar usuario');
   console.log('-'.repeat(70));
-  
+
   const registerPayload = {
     email: 'testuser@example.com',
     username: 'testuser',
@@ -77,7 +77,7 @@ async function runTests() {
 
   const registerResult = await makeRequest('POST', '/auth/register', registerPayload);
   console.log(`Status: ${registerResult.status}`);
-  
+
   if (registerResult.status === 201 || registerResult.status === 400) {
     if (registerResult.status === 201) {
       console.log('✅ Usuario registrado exitosamente');
@@ -231,19 +231,19 @@ async function runTests() {
   console.log('✅ RolesGuard: Verifica roles específicos (ej: ADMIN)');
   console.log('✅ @CurrentUser(): Extrae usuario desde el token JWT');
   console.log('✅ @Roles(): Define roles permitidos por endpoint');
-  
+
   console.log('\n📚 Endpoints Protegidos:');
   console.log('  🔒 GET /users/profile/me - Requiere autenticación');
   console.log('  🔒 PUT /users/profile/me - Requiere autenticación');
   console.log('  🔐 GET /users - Requiere rol ADMIN');
   console.log('  🔐 PUT /users/:id - Requiere rol ADMIN');
   console.log('  🔐 DELETE /users/:id - Requiere rol ADMIN');
-  
+
   console.log('\n📚 Endpoints Públicos:');
   console.log('  🌍 POST /auth/register - Público');
   console.log('  🌍 POST /auth/login - Público');
   console.log('  🌍 GET /users/:id - Público');
-  
+
   console.log('\n' + '='.repeat(70));
   console.log('🎉 Pruebas completadas\n');
 }

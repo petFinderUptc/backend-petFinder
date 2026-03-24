@@ -33,8 +33,9 @@ async function deleteUsersContainer() {
     // Eliminar el contenedor
     await container.delete();
     console.log('✅ Contenedor "users" eliminado exitosamente');
-    console.log('\nAhora puedes reiniciar la aplicación para crear el contenedor con la nueva configuración.');
-
+    console.log(
+      '\nAhora puedes reiniciar la aplicación para crear el contenedor con la nueva configuración.',
+    );
   } catch (error) {
     console.error('❌ Error al eliminar el contenedor:', error.message);
     throw error;

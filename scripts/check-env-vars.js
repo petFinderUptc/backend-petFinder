@@ -23,7 +23,7 @@ const presentVars = [];
 
 console.log('🔍 Verificando variables de entorno...\n');
 
-requiredEnvVars.forEach(varName => {
+requiredEnvVars.forEach((varName) => {
   if (!process.env[varName]) {
     missingVars.push(varName);
     console.log(`❌ ${varName}: NO CONFIGURADA`);
@@ -31,9 +31,7 @@ requiredEnvVars.forEach(varName => {
     presentVars.push(varName);
     // Ocultar valores sensibles
     const isSensitive = varName.includes('SECRET') || varName.includes('KEY');
-    const displayValue = isSensitive 
-      ? '***HIDDEN***' 
-      : process.env[varName].substring(0, 50);
+    const displayValue = isSensitive ? '***HIDDEN***' : process.env[varName].substring(0, 50);
     console.log(`✅ ${varName}: ${displayValue}`);
   }
 });
@@ -44,7 +42,7 @@ console.log('========================================\n');
 
 if (missingVars.length > 0) {
   console.error('🚨 ERROR: Faltan las siguientes variables de entorno:');
-  missingVars.forEach(varName => {
+  missingVars.forEach((varName) => {
     console.error(`   - ${varName}`);
   });
   console.error('\n⚠️  Configura estas variables en Azure Portal:');

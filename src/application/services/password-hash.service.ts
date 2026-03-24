@@ -16,7 +16,7 @@ export class PasswordHashService {
       return hashedPassword;
     } catch (error) {
       throw new InternalServerErrorException(
-        'Error al procesar la contraseña. Por favor, intente nuevamente.'
+        'Error al procesar la contraseña. Por favor, intente nuevamente.',
       );
     }
   }
@@ -27,7 +27,7 @@ export class PasswordHashService {
       return isMatch;
     } catch (error) {
       throw new InternalServerErrorException(
-        'Error al validar las credenciales. Por favor, intente nuevamente.'
+        'Error al validar las credenciales. Por favor, intente nuevamente.',
       );
     }
   }
