@@ -67,6 +67,18 @@ export class RefreshTokenDto {
   refreshToken?: string;
 }
 
+export class LogoutDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(10)
+  token?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(10)
+  refreshToken?: string;
+}
+
 export class ForgotPasswordDto {
   @IsEmail({}, { message: 'Email debe ser válido' })
   email: string;
@@ -115,9 +127,15 @@ export class AuthResponseDto {
     description: 'Token JWT de acceso',
   })
   accessToken: string;
-
-  @ApiProperty({ description: 'Datos del usuario autenticado', type: AuthUserDto })
-  user: AuthUserDto;
+  refreshToken?: string;
+  tokenType?: 'Bearer';
+  user: {
+    id: string;
+    email: string;
+    username: string;
+    firstName: string;
+    lastName: string;
+  };
 
   constructor(partial: Partial<AuthResponseDto>) {
     Object.assign(this, partial);

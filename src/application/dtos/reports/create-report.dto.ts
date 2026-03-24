@@ -1,5 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsNumber, IsString, IsUrl, Max, Min, MinLength } from 'class-validator';
+import {
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUrl,
+  Max,
+  Min,
+  MinLength,
+} from 'class-validator';
 import { PetSize, PetType, PostStatus, PostType } from '../../../domain/enums';
 
 export class CreateReportDto {
@@ -11,9 +20,9 @@ export class CreateReportDto {
   @IsEnum(PostType)
   type: PostType;
 
-  @ApiProperty({ enum: PostStatus, description: 'Estado del reporte' })
+  @IsOptional()
   @IsEnum(PostStatus)
-  status: PostStatus;
+  status?: PostStatus;
 
   @ApiProperty({
     example: 'Mascota encontrada en el parque...',
@@ -49,15 +58,20 @@ export class CreateReportDto {
   @IsUrl({ require_protocol: true })
   imageUrl: string;
 
-  @ApiProperty({ example: -12.34, description: 'Latitud de ubicación' })
+  @IsOptional()
   @IsNumber()
   @Min(-90)
   @Max(90)
-  lat: number;
+  lat?: number;
 
-  @ApiProperty({ example: -56.78, description: 'Longitud de ubicación' })
+  @IsOptional()
   @IsNumber()
   @Min(-180)
   @Max(180)
-  lon: number;
+  lon?: number;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(5)
+  locationQuery?: string;
 }

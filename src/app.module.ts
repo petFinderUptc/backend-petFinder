@@ -8,6 +8,7 @@ import { UsersModule } from './modules/users/users.module';
 import { PostsModule } from './modules/posts/posts.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { LocationModule } from './modules/location/location.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { ReportsModule } from './modules/reports/reports.module';
     PostsModule,
     NotificationsModule,
     ReportsModule,
+    LocationModule,
   ],
   controllers: [AppController],
   providers: [],

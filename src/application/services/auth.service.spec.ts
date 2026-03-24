@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { AuthService } from './auth.service';
 import { UsersService } from './users.service';
 import { PasswordHashService } from './password-hash.service';
+import { RefreshTokenSessionService } from './refresh-token-session.service';
 import { User } from '../../domain/entities';
 import { UserRole } from '../../domain/enums';
 
@@ -26,6 +27,7 @@ describe('AuthService', () => {
   let usersService: jest.Mocked<Partial<UsersService>>;
   let passwordHashService: jest.Mocked<Partial<PasswordHashService>>;
   let jwtService: jest.Mocked<Partial<JwtService>>;
+  let refreshTokenSessionService: jest.Mocked<Partial<RefreshTokenSessionService>>;
 
   beforeEach(async () => {
     usersService = {
@@ -40,6 +42,13 @@ describe('AuthService', () => {
       sign: jest.fn().mockReturnValue('mock.jwt.token'),
       verify: jest.fn(),
     };
+    refreshTokenSessionService = {
+      issueTokenPair: jest.fn().mockResolvedValue({
+        accessToken: 'mock.jwt.token',
+        refreshToken: 'mock.refresh.token',
+        tokenType: 'Bearer',
+      }),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -47,6 +56,7 @@ describe('AuthService', () => {
         { provide: UsersService, useValue: usersService },
         { provide: PasswordHashService, useValue: passwordHashService },
         { provide: JwtService, useValue: jwtService },
+        { provide: RefreshTokenSessionService, useValue: refreshTokenSessionService },
       ],
     }).compile();
 
@@ -74,8 +84,9 @@ describe('AuthService', () => {
       const result = await service.register(dto);
 
       expect(usersService.create).toHaveBeenCalledWith(dto);
-      expect(jwtService.sign).toHaveBeenCalled();
+      expect(refreshTokenSessionService.issueTokenPair).toHaveBeenCalledWith(user.id, user.email);
       expect(result.accessToken).toBe('mock.jwt.token');
+      expect(result.refreshToken).toBe('mock.refresh.token');
       expect(result.user.email).toBe(user.email);
     });
   });
@@ -89,6 +100,7 @@ describe('AuthService', () => {
       const result = await service.login({ email: 'test@example.com', password: 'Pass123!' });
 
       expect(result.accessToken).toBe('mock.jwt.token');
+      expect(result.refreshToken).toBe('mock.refresh.token');
       expect(result.user.email).toBe('test@example.com');
     });
 

@@ -5,11 +5,13 @@ import {
   RegisterDto,
   LoginDto,
   AuthResponseDto,
+  LogoutDto,
   ForgotPasswordDto,
   ResetPasswordDto,
   VerifyEmailDto,
 } from '../dtos/auth';
 import { PasswordHashService } from './password-hash.service';
+import { RefreshTokenSessionService } from './refresh-token-session.service';
 
 @Injectable()
 export class AuthService {
@@ -17,14 +19,17 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly passwordHashService: PasswordHashService,
+    private readonly refreshTokenSessionService: RefreshTokenSessionService,
   ) {}
 
   async register(registerDto: RegisterDto): Promise<AuthResponseDto> {
     const user = await this.usersService.create(registerDto);
-    const accessToken = this.generateToken(user.id, user.email);
+    const tokenPair = await this.refreshTokenSessionService.issueTokenPair(user.id, user.email);
 
     return new AuthResponseDto({
-      accessToken,
+      accessToken: tokenPair.accessToken,
+      refreshToken: tokenPair.refreshToken,
+      tokenType: tokenPair.tokenType,
       user: {
         id: user.id,
         email: user.email,
@@ -53,10 +58,12 @@ export class AuthService {
       throw new UnauthorizedException('Usuario inactivo');
     }
 
-    const accessToken = this.generateToken(user.id, user.email);
+    const tokenPair = await this.refreshTokenSessionService.issueTokenPair(user.id, user.email);
 
     return new AuthResponseDto({
-      accessToken,
+      accessToken: tokenPair.accessToken,
+      refreshToken: tokenPair.refreshToken,
+      tokenType: tokenPair.tokenType,
       user: {
         id: user.id,
         email: user.email,
@@ -75,19 +82,21 @@ export class AuthService {
     }
   }
 
-  async refresh(token: string): Promise<{ accessToken: string }> {
-    const payload = await this.validateToken(token);
-    const user = await this.usersService.findByEmail(payload.email);
-
-    if (!user || !user.isActive) {
-      throw new UnauthorizedException('Usuario no autorizado para refrescar token');
+  async refresh(token: string): Promise<{ accessToken: string; refreshToken: string }> {
+    if (!token) {
+      throw new BadRequestException('Refresh token requerido');
     }
 
-    const accessToken = this.generateToken(user.id, user.email);
-    return { accessToken };
+    const tokenPair = await this.refreshTokenSessionService.rotateTokenPair(token);
+    return {
+      accessToken: tokenPair.accessToken,
+      refreshToken: tokenPair.refreshToken,
+    };
   }
 
-  async logout(): Promise<{ message: string }> {
+  async logout(logoutDto?: LogoutDto): Promise<{ message: string }> {
+    const refreshToken = logoutDto?.token ?? logoutDto?.refreshToken;
+    await this.refreshTokenSessionService.revokeByToken(refreshToken);
     return { message: 'Sesion cerrada correctamente' };
   }
 
@@ -152,12 +161,8 @@ export class AuthService {
     return { message: 'Correo verificado correctamente' };
   }
 
-  private generateToken(userId: string, email: string): string {
-    const payload = {
-      sub: userId,
-      email: email,
-    };
-
-    return this.jwtService.sign(payload);
+  async logoutAll(userId: string): Promise<{ message: string }> {
+    await this.refreshTokenSessionService.revokeAllByUser(userId);
+    return { message: 'Todas las sesiones del usuario fueron cerradas' };
   }
 }

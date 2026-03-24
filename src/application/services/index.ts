@@ -8,3 +8,5 @@ export * from './posts.service';
 export * from './password-hash.service';
 export * from './notifications.service';
 export * from './reports.service';
+export * from './location.service';
+export * from './refresh-token-session.service';
