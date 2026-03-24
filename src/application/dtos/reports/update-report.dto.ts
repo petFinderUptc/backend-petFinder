@@ -58,4 +58,9 @@ export class UpdateReportDto {
   @Min(-180)
   @Max(180)
   lon?: number;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(5)
+  locationQuery?: string;
 }

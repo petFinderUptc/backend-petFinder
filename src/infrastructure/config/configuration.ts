@@ -8,6 +8,8 @@ export default () => ({
   jwt: {
     secret: process.env.JWT_SECRET || 'dev-secret-key',
     expiresIn: process.env.JWT_EXPIRATION || '7d',
+    refreshSecret: process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'dev-refresh-secret',
+    refreshExpiresIn: process.env.JWT_REFRESH_EXPIRATION || '30d',
   },
 
   cors: {
@@ -37,5 +39,11 @@ export default () => ({
     useSignedUrls: (process.env.AZURE_STORAGE_USE_SIGNED_URLS || 'true') === 'true',
     sasExpiryMinutes: parseInt(process.env.AZURE_STORAGE_SAS_EXPIRY_MINUTES || '60', 10),
     maxFileSizeMb: parseInt(process.env.AZURE_STORAGE_MAX_FILE_SIZE_MB || '5', 10),
+  },
+
+  location: {
+    geocodingBaseUrl: process.env.GEOCODING_BASE_URL || 'https://nominatim.openstreetmap.org',
+    defaultCountryCode: process.env.GEOCODING_DEFAULT_COUNTRY || 'co',
+    userAgent: process.env.GEOCODING_USER_AGENT || 'PetFinderBackend/1.0 (petfinder@local.dev)',
   },
 });

@@ -5,6 +5,7 @@ import {
   LoginDto,
   AuthResponseDto,
   RefreshTokenDto,
+  LogoutDto,
   ForgotPasswordDto,
   ResetPasswordDto,
   VerifyEmailDto,
@@ -30,7 +31,9 @@ export class AuthController {
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  async refresh(@Body() refreshTokenDto: RefreshTokenDto): Promise<{ accessToken: string }> {
+  async refresh(
+    @Body() refreshTokenDto: RefreshTokenDto,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
     const token = refreshTokenDto.token ?? refreshTokenDto.refreshToken;
     return this.authService.refresh(token || '');
   }
@@ -45,8 +48,15 @@ export class AuthController {
 
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  async logout(): Promise<{ message: string }> {
-    return this.authService.logout();
+  async logout(@Body() logoutDto: LogoutDto): Promise<{ message: string }> {
+    return this.authService.logout(logoutDto);
+  }
+
+  @Post('logout-all')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async logoutAll(@CurrentUser() user: UserFromJwt): Promise<{ message: string }> {
+    return this.authService.logoutAll(user.id);
   }
 
   @Get('verify')

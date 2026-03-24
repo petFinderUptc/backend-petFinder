@@ -13,6 +13,7 @@ import { NotificationType } from '../../domain/entities';
 import { CreateReportDto } from '../dtos/reports/create-report.dto';
 import { UpdateReportDto } from '../dtos/reports/update-report.dto';
 import { NotificationsService } from './notifications.service';
+import { LocationService } from './location.service';
 
 @Injectable()
 export class ReportsService {
@@ -22,10 +23,16 @@ export class ReportsService {
     @Inject('IReportRepository')
     private readonly reportRepository: IReportRepository,
     private readonly notificationsService: NotificationsService,
+    private readonly locationService: LocationService,
   ) {}
 
   async createReport(userId: string, dto: CreateReportDto): Promise<Report> {
     this.validateImageUrl(dto.imageUrl);
+    const coordinates = await this.locationService.resolveCoordinates({
+      lat: dto.lat,
+      lon: dto.lon,
+      locationQuery: dto.locationQuery,
+    });
 
     const report = new Report(
       '',
@@ -39,8 +46,8 @@ export class ReportsService {
       dto.size,
       dto.contact,
       dto.imageUrl,
-      dto.lat,
-      dto.lon,
+      coordinates.lat,
+      coordinates.lon,
       new Date(),
       new Date(),
       [],
@@ -106,6 +113,16 @@ export class ReportsService {
       throw new ForbiddenException('No tienes permiso para editar este reporte');
 
     if (dto.imageUrl) this.validateImageUrl(dto.imageUrl);
+    const coordinates = await this.locationService.resolveCoordinates(
+      {
+        lat: dto.lat,
+        lon: dto.lon,
+        locationQuery: dto.locationQuery,
+      },
+      {
+        allowEmpty: true,
+      },
+    );
 
     report.update({
       species: dto.species,
@@ -116,8 +133,8 @@ export class ReportsService {
       size: dto.size,
       contact: dto.contact,
       imageUrl: dto.imageUrl,
-      lat: dto.lat,
-      lon: dto.lon,
+      lat: coordinates?.lat,
+      lon: coordinates?.lon,
     });
 
     const updated = await this.reportRepository.update(id, report);
@@ -153,10 +170,6 @@ export class ReportsService {
   }
 
   private validateImageUrl(imageUrl: string): void {
-    if (imageUrl.startsWith('/uploads/')) {
-      return;
-    }
-
     let url: URL;
     try {
       url = new URL(imageUrl);

@@ -7,3 +7,4 @@ export * from './post-type.enum';
 export * from './post-status.enum';
 export * from './pet-type.enum';
 export * from './pet-size.enum';
+export * from './report-catalog';
