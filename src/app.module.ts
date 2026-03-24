@@ -9,6 +9,7 @@ import { PostsModule } from './modules/posts/posts.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { LocationModule } from './modules/location/location.module';
+import { StorageModule } from './modules/storage/storage.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { LocationModule } from './modules/location/location.module';
     NotificationsModule,
     ReportsModule,
     LocationModule,
+    StorageModule,
   ],
   controllers: [AppController],
   providers: [],

@@ -144,6 +144,39 @@ export class AzureBlobStorageService {
     }
   }
 
+  async generateSignedUrl(blobName: string): Promise<string> {
+    const containerName =
+      this.configService.get<string>('azureStorage.containerName') || 'pet-images';
+    const accountName = this.configService.get<string>('azureStorage.accountName');
+    const accountKey = this.configService.get<string>('azureStorage.accountKey');
+
+    if (!accountName || !accountKey) {
+      throw new InternalServerErrorException(
+        'Azure Blob Storage no configurado: falta AZURE_STORAGE_ACCOUNT_NAME o AZURE_STORAGE_ACCOUNT_KEY',
+      );
+    }
+
+    const sharedKeyCredential = new StorageSharedKeyCredential(accountName, accountKey);
+    const expiresInMinutes = this.configService.get<number>('azureStorage.sasExpiryMinutes') || 60;
+
+    try {
+      const sasToken = generateBlobSASQueryParameters(
+        {
+          containerName,
+          blobName,
+          permissions: BlobSASPermissions.parse('r'),
+          expiresOn: new Date(Date.now() + expiresInMinutes * 60 * 1000),
+        },
+        sharedKeyCredential,
+      ).toString();
+
+      return `https://${accountName}.blob.core.windows.net/${containerName}/${blobName}?${sasToken}`;
+    } catch (error) {
+      this.logger.error(`Error generando Signed URL: ${error.message}`);
+      throw new InternalServerErrorException('No se pudo generar URL firmada para el blob');
+    }
+  }
+
   private validateImage(file: any): void {
     const maxSizeBytes =
       (this.configService.get<number>('azureStorage.maxFileSizeMb') || 5) * 1024 * 1024;
