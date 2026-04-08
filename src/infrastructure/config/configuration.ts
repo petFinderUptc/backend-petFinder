@@ -31,7 +31,10 @@ export default () => ({
 
   azureStorage: {
     connectionString: process.env.AZURE_STORAGE_CONNECTION_STRING,
-    containerName: process.env.AZURE_STORAGE_CONTAINER_NAME || 'pet-images',
+    containerName:
+      process.env.AZURE_STORAGE_CONTAINER ||
+      process.env.AZURE_STORAGE_CONTAINER_NAME ||
+      'pet-images',
     accountName: process.env.AZURE_STORAGE_ACCOUNT_NAME,
     accountKey: process.env.AZURE_STORAGE_ACCOUNT_KEY,
     useSignedUrls: (process.env.AZURE_STORAGE_USE_SIGNED_URLS || 'true') === 'true',

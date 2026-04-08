@@ -47,6 +47,21 @@ export class PostsService {
     );
 
     const savedPost = await this.postRepository.create(post);
+
+    try {
+      await this.notificationsService.create(
+        userId,
+        NotificationType.UPDATE,
+        'Reporte publicado',
+        `Tu reporte ${savedPost.id} fue creado correctamente.`,
+        savedPost.id,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `No se pudo crear notificacion de creacion para post ${savedPost.id}: ${error.message}`,
+      );
+    }
+
     return savedPost;
   }
 

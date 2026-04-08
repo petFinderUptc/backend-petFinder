@@ -147,10 +147,10 @@ export class AzureBlobStorageService {
   private validateImage(file: any): void {
     const maxSizeBytes =
       (this.configService.get<number>('azureStorage.maxFileSizeMb') || 5) * 1024 * 1024;
-    const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+    const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 
     if (!allowedMimeTypes.includes(file.mimetype)) {
-      throw new BadRequestException('Tipo de archivo no permitido. Solo jpg y png');
+      throw new BadRequestException('Tipo de archivo no permitido. Solo jpg, png o webp');
     }
 
     if (file.size > maxSizeBytes) {
@@ -160,6 +160,9 @@ export class AzureBlobStorageService {
 
   private resolveExtension(originalName: string, mimeType: string): string {
     const lower = (originalName || '').toLowerCase();
+    if (lower.endsWith('.webp') || mimeType === 'image/webp') {
+      return '.webp';
+    }
     if (lower.endsWith('.png') || mimeType === 'image/png') {
       return '.png';
     }

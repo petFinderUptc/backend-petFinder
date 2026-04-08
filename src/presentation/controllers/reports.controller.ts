@@ -14,6 +14,7 @@ import {
   UseInterceptors,
   UploadedFile,
   InternalServerErrorException,
+  Header,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ReportsService } from '../../application/services/reports.service';
@@ -38,8 +39,11 @@ export class ReportsController {
     FileInterceptor('image', {
       limits: { fileSize: 5 * 1024 * 1024 },
       fileFilter: (req, file, callback) => {
-        if (!file.mimetype.match(/\/(jpg|jpeg|png)$/)) {
-          return callback(new BadRequestException('Solo se permiten imagenes jpg y png'), false);
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|webp)$/)) {
+          return callback(
+            new BadRequestException('Solo se permiten imagenes jpg, png o webp'),
+            false,
+          );
         }
         callback(null, true);
       },
@@ -91,6 +95,7 @@ export class ReportsController {
   async findAll(
     @Query('page') page = '1',
     @Query('limit') limit = '10',
+    @Query('search') search?: string,
     @Query('species') species?: PetType,
     @Query('type') type?: PostType,
     @Query('size') size?: PetSize,
@@ -115,7 +120,90 @@ export class ReportsController {
       throw new BadRequestException('El parámetro limit debe ser un entero entre 1 y 100');
     }
 
-    return this.reportsService.findAll(parsedPage, parsedLimit, { species, type, size });
+    return this.reportsService.findAll(parsedPage, parsedLimit, { search, species, type, size });
+  }
+
+  @Get('search')
+  async search(
+    @Query('query') query: string,
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+    @Query('species') species?: PetType,
+    @Query('type') type?: PostType,
+    @Query('size') size?: PetSize,
+  ): Promise<{
+    data: Report[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+      hasNextPage: boolean;
+      hasPrevPage: boolean;
+    };
+  }> {
+    const parsedPage = Number(page);
+    const parsedLimit = Number(limit);
+
+    if (!query || query.trim().length < 2) {
+      throw new BadRequestException('El parámetro query debe tener al menos 2 caracteres');
+    }
+    if (!Number.isInteger(parsedPage) || parsedPage < 1) {
+      throw new BadRequestException('El parámetro page debe ser un entero mayor o igual a 1');
+    }
+    if (!Number.isInteger(parsedLimit) || parsedLimit < 1 || parsedLimit > 100) {
+      throw new BadRequestException('El parámetro limit debe ser un entero entre 1 y 100');
+    }
+
+    return this.reportsService.search(query.trim(), parsedPage, parsedLimit, {
+      species,
+      type,
+      size,
+    });
+  }
+
+  @Get('export')
+  async exportJson(): Promise<
+    Array<{
+      id: string;
+      species: string;
+      type: string;
+      status: string;
+      breed: string;
+      createdAt: string;
+      lat: number;
+      lon: number;
+      city: null;
+      neighborhood: null;
+    }>
+  > {
+    return this.reportsService.exportDataset();
+  }
+
+  @Get('export/csv')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  async exportCsv(): Promise<string> {
+    const rows = await this.reportsService.exportDataset();
+    const header = 'id,species,type,status,breed,createdAt,lat,lon,city,neighborhood';
+
+    const csvRows = rows.map((row) =>
+      [
+        row.id,
+        row.species,
+        row.type,
+        row.status,
+        row.breed,
+        row.createdAt,
+        row.lat,
+        row.lon,
+        row.city ?? '',
+        row.neighborhood ?? '',
+      ]
+        .map((value) => `"${String(value).replace(/"/g, '""')}"`)
+        .join(','),
+    );
+
+    return [header, ...csvRows].join('\n');
   }
 
   /**
