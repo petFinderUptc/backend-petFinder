@@ -149,11 +149,16 @@ export class AzureBlobStorageService {
       this.configService.get<string>('azureStorage.containerName') || 'pet-images';
     const accountName = this.configService.get<string>('azureStorage.accountName');
     const accountKey = this.configService.get<string>('azureStorage.accountKey');
+    const normalizedBlobName = this.normalizeBlobName(blobName, containerName);
 
     if (!accountName || !accountKey) {
       throw new InternalServerErrorException(
         'Azure Blob Storage no configurado: falta AZURE_STORAGE_ACCOUNT_NAME o AZURE_STORAGE_ACCOUNT_KEY',
       );
+    }
+
+    if (!normalizedBlobName) {
+      throw new BadRequestException('blobName inválido');
     }
 
     const sharedKeyCredential = new StorageSharedKeyCredential(accountName, accountKey);
@@ -163,14 +168,14 @@ export class AzureBlobStorageService {
       const sasToken = generateBlobSASQueryParameters(
         {
           containerName,
-          blobName,
+          blobName: normalizedBlobName,
           permissions: BlobSASPermissions.parse('r'),
           expiresOn: new Date(Date.now() + expiresInMinutes * 60 * 1000),
         },
         sharedKeyCredential,
       ).toString();
 
-      return `https://${accountName}.blob.core.windows.net/${containerName}/${blobName}?${sasToken}`;
+      return `https://${accountName}.blob.core.windows.net/${containerName}/${normalizedBlobName}?${sasToken}`;
     } catch (error) {
       this.logger.error(`Error generando Signed URL: ${error.message}`);
       throw new InternalServerErrorException('No se pudo generar URL firmada para el blob');
@@ -242,5 +247,30 @@ export class AzureBlobStorageService {
     } catch {
       return null;
     }
+  }
+
+  private normalizeBlobName(input: string, containerName: string): string | null {
+    if (!input) {
+      return null;
+    }
+
+    const trimmedInput = input.trim();
+
+    if (trimmedInput.includes('.blob.core.windows.net')) {
+      return this.getBlobNameFromUrl(trimmedInput, containerName);
+    }
+
+    const withoutLeadingSlash = trimmedInput.replace(/^\/+/, '');
+    const parts = withoutLeadingSlash.split('/').filter(Boolean);
+
+    if (parts.length === 0) {
+      return null;
+    }
+
+    if (parts[0] === containerName) {
+      return parts.slice(1).join('/');
+    }
+
+    return withoutLeadingSlash;
   }
 }
