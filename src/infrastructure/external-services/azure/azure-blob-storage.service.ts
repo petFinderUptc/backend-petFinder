@@ -145,11 +145,11 @@ export class AzureBlobStorageService {
   }
 
   async generateSignedUrl(blobName: string): Promise<string> {
-    const containerName =
+    const defaultContainerName =
       this.configService.get<string>('azureStorage.containerName') || 'pet-images';
     const accountName = this.configService.get<string>('azureStorage.accountName');
     const accountKey = this.configService.get<string>('azureStorage.accountKey');
-    const normalizedBlobName = this.normalizeBlobName(blobName, containerName);
+    const normalizedBlobReference = this.normalizeBlobReference(blobName, defaultContainerName);
 
     if (!accountName || !accountKey) {
       throw new InternalServerErrorException(
@@ -157,7 +157,7 @@ export class AzureBlobStorageService {
       );
     }
 
-    if (!normalizedBlobName) {
+    if (!normalizedBlobReference) {
       throw new BadRequestException('blobName inválido');
     }
 
@@ -167,15 +167,15 @@ export class AzureBlobStorageService {
     try {
       const sasToken = generateBlobSASQueryParameters(
         {
-          containerName,
-          blobName: normalizedBlobName,
+          containerName: normalizedBlobReference.containerName,
+          blobName: normalizedBlobReference.blobName,
           permissions: BlobSASPermissions.parse('r'),
           expiresOn: new Date(Date.now() + expiresInMinutes * 60 * 1000),
         },
         sharedKeyCredential,
       ).toString();
 
-      return `https://${accountName}.blob.core.windows.net/${containerName}/${normalizedBlobName}?${sasToken}`;
+      return `https://${accountName}.blob.core.windows.net/${normalizedBlobReference.containerName}/${normalizedBlobReference.blobName}?${sasToken}`;
     } catch (error) {
       this.logger.error(`Error generando Signed URL: ${error.message}`);
       throw new InternalServerErrorException('No se pudo generar URL firmada para el blob');
@@ -249,7 +249,10 @@ export class AzureBlobStorageService {
     }
   }
 
-  private normalizeBlobName(input: string, containerName: string): string | null {
+  private normalizeBlobReference(
+    input: string,
+    defaultContainerName: string,
+  ): { containerName: string; blobName: string } | null {
     if (!input) {
       return null;
     }
@@ -257,7 +260,20 @@ export class AzureBlobStorageService {
     const trimmedInput = input.trim();
 
     if (trimmedInput.includes('.blob.core.windows.net')) {
-      return this.getBlobNameFromUrl(trimmedInput, containerName);
+      try {
+        const parsed = new URL(trimmedInput);
+        const parts = parsed.pathname.split('/').filter(Boolean);
+        if (parts.length < 2) {
+          return null;
+        }
+
+        return {
+          containerName: parts[0],
+          blobName: parts.slice(1).join('/'),
+        };
+      } catch {
+        return null;
+      }
     }
 
     const withoutLeadingSlash = trimmedInput.replace(/^\/+/, '');
@@ -267,10 +283,14 @@ export class AzureBlobStorageService {
       return null;
     }
 
-    if (parts[0] === containerName) {
-      return parts.slice(1).join('/');
+    if (parts[0] === defaultContainerName) {
+      const blobName = parts.slice(1).join('/');
+      return blobName ? { containerName: defaultContainerName, blobName } : null;
     }
 
-    return withoutLeadingSlash;
+    return {
+      containerName: defaultContainerName,
+      blobName: withoutLeadingSlash,
+    };
   }
 }
