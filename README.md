@@ -243,6 +243,8 @@ POST /api/v1/auth/login        # Login (devuelve JWT)
 ```
 GET    /api/v1/users/profile           # Obtener perfil del usuario autenticado
 PUT    /api/v1/users/profile           # Actualizar perfil
+GET    /api/v1/users/profile/me        # Alias compatible de perfil
+PUT    /api/v1/users/profile/me        # Alias compatible de perfil
 GET    /api/v1/users/:id               # Obtener usuario por ID (Admin)
 GET    /api/v1/users                   # Listar todos los usuarios (Admin)
 PUT    /api/v1/users/:id               # Actualizar usuario (Admin)
@@ -252,11 +254,26 @@ DELETE /api/v1/users/:id               # Eliminar usuario (Admin)
 ### 📝 Publicaciones
 ```
 POST   /api/v1/posts                   # Crear publicación
+POST   /api/v1/posts/multipart         # Crear publicación multipart con image + campos
+POST   /api/v1/posts/upload-image      # Subir imagen y obtener URL
 GET    /api/v1/posts                   # Listar publicaciones (con filtros)
 GET    /api/v1/posts/:id               # Obtener detalle de publicación
 PUT    /api/v1/posts/:id               # Actualizar publicación
 DELETE /api/v1/posts/:id               # Eliminar publicación
-PATCH  /api/v1/posts/:id/resolve       # Marcar como resuelta
+PUT    /api/v1/posts/:id/resolve       # Marcar como resuelta
+```
+
+### 📍 Reportes
+```
+POST   /api/v1/reports                 # Crear reporte
+POST   /api/v1/reports/upload-image    # Subir imagen de reporte
+GET    /api/v1/reports                 # Listar reportes (species/type/size/search)
+GET    /api/v1/reports/search          # Búsqueda textual por query
+GET    /api/v1/reports/export          # Export JSON para BI
+GET    /api/v1/reports/export/csv      # Export CSV para BI
+GET    /api/v1/reports/:id             # Detalle de reporte
+PUT    /api/v1/reports/:id             # Actualizar reporte
+DELETE /api/v1/reports/:id             # Eliminar lógicamente reporte
 ```
 
 #### Filtros disponibles en GET /api/v1/posts:

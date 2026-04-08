@@ -66,6 +66,12 @@ export class CosmosDbReportRepository implements IReportRepository {
       conditions.push('c.userId = @userId');
       parameters.push({ name: '@userId', value: filters.userId });
     }
+    if (filters?.search) {
+      conditions.push(
+        '(CONTAINS(c.species, @search, true) OR CONTAINS(c.description, @search, true) OR CONTAINS(c.breed, @search, true))',
+      );
+      parameters.push({ name: '@search', value: filters.search });
+    }
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     const query = `SELECT * FROM c ${where} ORDER BY c.createdAt DESC`;

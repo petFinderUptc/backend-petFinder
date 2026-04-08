@@ -53,7 +53,23 @@ export class ReportsService {
       [],
     );
 
-    return this.reportRepository.create(report);
+    const created = await this.reportRepository.create(report);
+
+    try {
+      await this.notificationsService.create(
+        userId,
+        NotificationType.UPDATE,
+        'Reporte creado',
+        `Tu reporte ${created.id} fue publicado correctamente.`,
+        created.id,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `No se pudo crear notificacion de creacion para reporte ${created.id}: ${error.message}`,
+      );
+    }
+
+    return created;
   }
 
   async findAll(
@@ -92,6 +108,76 @@ export class ReportsService {
         hasPrevPage: page > 1,
       },
     };
+  }
+
+  async search(
+    query: string,
+    page: number,
+    limit: number,
+    filters?: Omit<ReportFilters, 'userId' | 'status' | 'search'>,
+  ): Promise<{
+    data: Report[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+      hasNextPage: boolean;
+      hasPrevPage: boolean;
+    };
+  }> {
+    const allActive = await this.reportRepository.findAll({
+      ...filters,
+      search: query,
+      status: PostStatus.ACTIVE,
+    });
+
+    const total = allActive.length;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const offset = (page - 1) * limit;
+    const data = allActive.slice(offset, offset + limit);
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
+    };
+  }
+
+  async exportDataset(): Promise<
+    Array<{
+      id: string;
+      species: string;
+      type: string;
+      status: string;
+      breed: string;
+      createdAt: string;
+      lat: number;
+      lon: number;
+      city: null;
+      neighborhood: null;
+    }>
+  > {
+    const reports = await this.reportRepository.findAll();
+
+    return reports.map((report) => ({
+      id: report.id,
+      species: report.species,
+      type: report.type,
+      status: report.status,
+      breed: report.breed,
+      createdAt: report.createdAt.toISOString(),
+      lat: report.lat,
+      lon: report.lon,
+      city: null,
+      neighborhood: null,
+    }));
   }
 
   async findById(id: string): Promise<Report> {
