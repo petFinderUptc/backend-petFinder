@@ -7,6 +7,7 @@ export interface ReportFilters {
   status?: PostStatus;
   size?: PetSize;
   userId?: string;
+  search?: string;
 }
 
 export interface IReportRepository {

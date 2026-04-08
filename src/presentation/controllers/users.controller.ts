@@ -91,6 +91,12 @@ export class UsersController {
     return this.usersService.findOne(user.id);
   }
 
+  @Get('profile')
+  @UseGuards(JwtAuthGuard)
+  async getProfileAlias(@CurrentUser() user: UserFromJwt): Promise<UserResponseDto> {
+    return this.usersService.findOne(user.id);
+  }
+
   @Get(':id')
   @UseGuards(JwtAuthGuard)
   @ApiOperation({
@@ -122,6 +128,15 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'Perfil actualizado', type: UserResponseDto })
   @ApiResponse({ status: 401, description: 'No autorizado' })
   async updateProfile(
+    @CurrentUser() user: UserFromJwt,
+    @Body() updateUserDto: UpdateUserDto,
+  ): Promise<UserResponseDto> {
+    return this.usersService.update(user.id, updateUserDto);
+  }
+
+  @Put('profile')
+  @UseGuards(JwtAuthGuard)
+  async updateProfileAlias(
     @CurrentUser() user: UserFromJwt,
     @Body() updateUserDto: UpdateUserDto,
   ): Promise<UserResponseDto> {
