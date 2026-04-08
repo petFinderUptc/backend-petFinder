@@ -144,13 +144,51 @@ export class AzureBlobStorageService {
     }
   }
 
+  async generateSignedUrl(blobName: string): Promise<string> {
+    const containerName =
+      this.configService.get<string>('azureStorage.containerName') || 'pet-images';
+    const accountName = this.configService.get<string>('azureStorage.accountName');
+    const accountKey = this.configService.get<string>('azureStorage.accountKey');
+    const normalizedBlobName = this.normalizeBlobName(blobName, containerName);
+
+    if (!accountName || !accountKey) {
+      throw new InternalServerErrorException(
+        'Azure Blob Storage no configurado: falta AZURE_STORAGE_ACCOUNT_NAME o AZURE_STORAGE_ACCOUNT_KEY',
+      );
+    }
+
+    if (!normalizedBlobName) {
+      throw new BadRequestException('blobName inválido');
+    }
+
+    const sharedKeyCredential = new StorageSharedKeyCredential(accountName, accountKey);
+    const expiresInMinutes = this.configService.get<number>('azureStorage.sasExpiryMinutes') || 60;
+
+    try {
+      const sasToken = generateBlobSASQueryParameters(
+        {
+          containerName,
+          blobName: normalizedBlobName,
+          permissions: BlobSASPermissions.parse('r'),
+          expiresOn: new Date(Date.now() + expiresInMinutes * 60 * 1000),
+        },
+        sharedKeyCredential,
+      ).toString();
+
+      return `https://${accountName}.blob.core.windows.net/${containerName}/${normalizedBlobName}?${sasToken}`;
+    } catch (error) {
+      this.logger.error(`Error generando Signed URL: ${error.message}`);
+      throw new InternalServerErrorException('No se pudo generar URL firmada para el blob');
+    }
+  }
+
   private validateImage(file: any): void {
     const maxSizeBytes =
       (this.configService.get<number>('azureStorage.maxFileSizeMb') || 5) * 1024 * 1024;
-    const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+    const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 
     if (!allowedMimeTypes.includes(file.mimetype)) {
-      throw new BadRequestException('Tipo de archivo no permitido. Solo jpg y png');
+      throw new BadRequestException('Tipo de archivo no permitido. Solo jpg, png o webp');
     }
 
     if (file.size > maxSizeBytes) {
@@ -160,6 +198,9 @@ export class AzureBlobStorageService {
 
   private resolveExtension(originalName: string, mimeType: string): string {
     const lower = (originalName || '').toLowerCase();
+    if (lower.endsWith('.webp') || mimeType === 'image/webp') {
+      return '.webp';
+    }
     if (lower.endsWith('.png') || mimeType === 'image/png') {
       return '.png';
     }
@@ -206,5 +247,30 @@ export class AzureBlobStorageService {
     } catch {
       return null;
     }
+  }
+
+  private normalizeBlobName(input: string, containerName: string): string | null {
+    if (!input) {
+      return null;
+    }
+
+    const trimmedInput = input.trim();
+
+    if (trimmedInput.includes('.blob.core.windows.net')) {
+      return this.getBlobNameFromUrl(trimmedInput, containerName);
+    }
+
+    const withoutLeadingSlash = trimmedInput.replace(/^\/+/, '');
+    const parts = withoutLeadingSlash.split('/').filter(Boolean);
+
+    if (parts.length === 0) {
+      return null;
+    }
+
+    if (parts[0] === containerName) {
+      return parts.slice(1).join('/');
+    }
+
+    return withoutLeadingSlash;
   }
 }
