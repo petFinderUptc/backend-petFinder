@@ -7,10 +7,12 @@ import { AuthService } from '../../application/services';
 import { UsersModule } from '../users/users.module';
 import { JwtStrategy } from '../../presentation/strategies/jwt.strategy';
 import { RefreshTokenSessionService } from '../../application/services/refresh-token-session.service';
+import { DatabaseModule, CosmosDbUserRepository } from '../../infrastructure/database';
 
 @Module({
   imports: [
     UsersModule,
+    DatabaseModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -24,7 +26,15 @@ import { RefreshTokenSessionService } from '../../application/services/refresh-t
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, RefreshTokenSessionService],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    RefreshTokenSessionService,
+    {
+      provide: 'IUserRepository',
+      useClass: CosmosDbUserRepository,
+    },
+  ],
   exports: [AuthService, JwtModule, PassportModule],
 })
 export class AuthModule {}
