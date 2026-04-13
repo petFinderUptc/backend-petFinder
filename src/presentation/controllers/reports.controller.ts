@@ -26,7 +26,7 @@ import {
   ApiBody,
   ApiResponse,
 } from '@nestjs/swagger';
-import { ReportsService } from '../../application/services/reports.service';
+import { ReportsService, ReportWithScore } from '../../application/services/reports.service';
 import { CreateReportDto } from '../../application/dtos/reports/create-report.dto';
 import { UpdateReportDto } from '../../application/dtos/reports/update-report.dto';
 import { Report } from '../../domain/entities/report.entity';
@@ -43,6 +43,8 @@ export class ReportsController {
     private readonly reportsService: ReportsService,
     private readonly azureBlobStorageService: AzureBlobStorageService,
   ) {}
+
+  // ─── Imagen ───────────────────────────────────────────────────────────────
 
   @Post('upload-image')
   @UseGuards(JwtAuthGuard)
@@ -64,29 +66,19 @@ export class ReportsController {
     @CurrentUser() user: UserFromJwt,
     @UploadedFile() file: any,
   ): Promise<{ imageId: string; imageUrl: string; signedUrl?: string }> {
-    if (!file) {
-      throw new BadRequestException('Archivo de imagen requerido');
-    }
+    if (!file) throw new BadRequestException('Archivo de imagen requerido');
 
     try {
       const result = await this.azureBlobStorageService.uploadImage(file, 'reports', user.id);
-      return {
-        imageId: result.imageId,
-        imageUrl: result.imageUrl,
-        signedUrl: result.signedUrl,
-      };
+      return { imageId: result.imageId, imageUrl: result.imageUrl, signedUrl: result.signedUrl };
     } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
+      if (error instanceof BadRequestException) throw error;
       throw new InternalServerErrorException('No fue posible cargar la imagen en este momento');
     }
   }
 
-  /**
-   * POST /reports
-   * Crea un nuevo reporte de mascota. Requiere autenticación.
-   */
+  // ─── Crear ────────────────────────────────────────────────────────────────
+
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(JwtAuthGuard)
@@ -104,26 +96,18 @@ export class ReportsController {
     return this.reportsService.createReport(user.id, createReportDto);
   }
 
-  /**
-   * GET /reports
-   * Lista pública de reportes activos con paginación y filtros opcionales.
-   * Query params: page, limit, species, type, size
-   */
+  // ─── Listar ───────────────────────────────────────────────────────────────
+
   @Get()
   @ApiOperation({
     summary: 'Listar reportes',
-    description: 'Listado público de reportes con paginación y filtros',
+    description: 'Listado público con paginación y filtros',
   })
-  @ApiQuery({ name: 'page', required: false, description: 'Número de página', type: Number })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    description: 'Cantidad de items por página',
-    type: Number,
-  })
-  @ApiQuery({ name: 'species', required: false, description: 'Tipo de mascota', enum: PetType })
-  @ApiQuery({ name: 'type', required: false, description: 'Tipo de publicación', enum: PostType })
-  @ApiQuery({ name: 'size', required: false, description: 'Tamaño mascota', enum: PetSize })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'species', required: false, enum: PetType })
+  @ApiQuery({ name: 'type', required: false, enum: PostType })
+  @ApiQuery({ name: 'size', required: false, enum: PetSize })
   @ApiResponse({ status: 200, description: 'Listado obtenido', type: [Report] })
   async findAll(
     @Query('page') page = '1',
@@ -132,40 +116,53 @@ export class ReportsController {
     @Query('species') species?: PetType,
     @Query('type') type?: PostType,
     @Query('size') size?: PetSize,
-  ): Promise<{
-    data: Report[];
-    pagination: {
-      page: number;
-      limit: number;
-      total: number;
-      totalPages: number;
-      hasNextPage: boolean;
-      hasPrevPage: boolean;
-    };
-  }> {
+  ) {
     const parsedPage = Number(page);
     const parsedLimit = Number(limit);
 
-    if (!Number.isInteger(parsedPage) || parsedPage < 1) {
+    if (!Number.isInteger(parsedPage) || parsedPage < 1)
       throw new BadRequestException('El parámetro page debe ser un entero mayor o igual a 1');
-    }
-    if (!Number.isInteger(parsedLimit) || parsedLimit < 1 || parsedLimit > 100) {
+    if (!Number.isInteger(parsedLimit) || parsedLimit < 1 || parsedLimit > 100)
       throw new BadRequestException('El parámetro limit debe ser un entero entre 1 y 100');
-    }
 
     return this.reportsService.findAll(parsedPage, parsedLimit, { search, species, type, size });
   }
 
+  // ─── Búsqueda semántica ───────────────────────────────────────────────────
+
   @Get('search')
+  @ApiOperation({
+    summary: 'Búsqueda semántica',
+    description:
+      'Busca reportes usando IA (Gemini embeddings) + filtro geográfico opcional. ' +
+      'Devuelve resultados ordenados por relevancia semántica. ' +
+      'Si Gemini no está disponible hace fallback a búsqueda por texto.',
+  })
+  @ApiQuery({ name: 'query', required: true, description: 'Descripción libre de la mascota' })
+  @ApiQuery({ name: 'lat', required: false, description: 'Latitud del punto de búsqueda' })
+  @ApiQuery({ name: 'lon', required: false, description: 'Longitud del punto de búsqueda' })
+  @ApiQuery({
+    name: 'radiusKm',
+    required: false,
+    description: 'Radio de búsqueda en km (default 15)',
+  })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'species', required: false, enum: PetType })
+  @ApiQuery({ name: 'type', required: false, enum: PostType })
+  @ApiQuery({ name: 'size', required: false, enum: PetSize })
   async search(
     @Query('query') query: string,
     @Query('page') page = '1',
     @Query('limit') limit = '10',
+    @Query('lat') latStr?: string,
+    @Query('lon') lonStr?: string,
+    @Query('radiusKm') radiusKmStr?: string,
     @Query('species') species?: PetType,
     @Query('type') type?: PostType,
     @Query('size') size?: PetSize,
   ): Promise<{
-    data: Report[];
+    data: ReportWithScore[];
     pagination: {
       page: number;
       limit: number;
@@ -174,42 +171,54 @@ export class ReportsController {
       hasNextPage: boolean;
       hasPrevPage: boolean;
     };
+    isSemanticSearch: boolean;
   }> {
+    if (!query || query.trim().length < 2)
+      throw new BadRequestException('El parámetro query debe tener al menos 2 caracteres');
+
     const parsedPage = Number(page);
     const parsedLimit = Number(limit);
 
-    if (!query || query.trim().length < 2) {
-      throw new BadRequestException('El parámetro query debe tener al menos 2 caracteres');
-    }
-    if (!Number.isInteger(parsedPage) || parsedPage < 1) {
+    if (!Number.isInteger(parsedPage) || parsedPage < 1)
       throw new BadRequestException('El parámetro page debe ser un entero mayor o igual a 1');
-    }
-    if (!Number.isInteger(parsedLimit) || parsedLimit < 1 || parsedLimit > 100) {
+    if (!Number.isInteger(parsedLimit) || parsedLimit < 1 || parsedLimit > 100)
       throw new BadRequestException('El parámetro limit debe ser un entero entre 1 y 100');
-    }
+
+    const lat = latStr !== undefined ? parseFloat(latStr) : undefined;
+    const lon = lonStr !== undefined ? parseFloat(lonStr) : undefined;
+    const radiusKm = radiusKmStr !== undefined ? parseFloat(radiusKmStr) : 15;
 
     return this.reportsService.search(query.trim(), parsedPage, parsedLimit, {
+      lat,
+      lon,
+      radiusKm,
       species,
       type,
       size,
     });
   }
 
+  // ─── Backfill de embeddings ───────────────────────────────────────────────
+
+  @Post('backfill-embeddings')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Backfill embeddings',
+    description:
+      'Genera embeddings para todos los reportes que aún no tienen vector. ' +
+      'Requiere autenticación. Útil para migrar datos existentes.',
+  })
+  @ApiResponse({ status: 201, description: 'Backfill completado' })
+  @ApiResponse({ status: 400, description: 'Gemini API no configurada' })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
+  async backfillEmbeddings(): Promise<{ updated: number; skipped: number; errors: number }> {
+    return this.reportsService.backfillEmbeddings();
+  }
+
+  // ─── Export ───────────────────────────────────────────────────────────────
+
   @Get('export')
-  async exportJson(): Promise<
-    Array<{
-      id: string;
-      species: string;
-      type: string;
-      status: string;
-      breed: string;
-      createdAt: string;
-      lat: number;
-      lon: number;
-      city: null;
-      neighborhood: null;
-    }>
-  > {
+  async exportJson() {
     return this.reportsService.exportDataset();
   }
 
@@ -218,7 +227,6 @@ export class ReportsController {
   async exportCsv(): Promise<string> {
     const rows = await this.reportsService.exportDataset();
     const header = 'id,species,type,status,breed,createdAt,lat,lon,city,neighborhood';
-
     const csvRows = rows.map((row) =>
       [
         row.id,
@@ -232,57 +240,42 @@ export class ReportsController {
         row.city ?? '',
         row.neighborhood ?? '',
       ]
-        .map((value) => `"${String(value).replace(/"/g, '""')}"`)
+        .map((v) => `"${String(v).replace(/"/g, '""')}"`)
         .join(','),
     );
-
     return [header, ...csvRows].join('\n');
   }
 
-  /**
-   * GET /reports/my-reports
-   * Retorna todos los reportes del usuario autenticado (cualquier estado).
-   */
+  // ─── Mis reportes ─────────────────────────────────────────────────────────
+
   @Get('my-reports')
   @UseGuards(JwtAuthGuard)
   @ApiOperation({
     summary: 'Mis reportes',
     description: 'Retorna reportes del usuario autenticado',
   })
-  @ApiResponse({ status: 200, description: 'Reportes devueltos', type: [Report] })
-  @ApiResponse({ status: 401, description: 'No autorizado' })
   async findMyReports(@CurrentUser() user: UserFromJwt): Promise<Report[]> {
     return this.reportsService.findMyReports(user.id);
   }
 
-  /**
-   * GET /reports/:id
-   * Detalle público de un reporte activo. 404 si está inactivo o no existe.
-   */
+  // ─── Detalle ──────────────────────────────────────────────────────────────
+
   @Get(':id')
-  @ApiOperation({
-    summary: 'Reporte por id',
-    description: 'Obtiene información de un reporte por su id',
-  })
-  @ApiParam({ name: 'id', description: 'ID del reporte', type: String })
-  @ApiResponse({ status: 200, description: 'Reporte encontrado', type: Report })
+  @ApiOperation({ summary: 'Reporte por id' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiResponse({ status: 200, type: Report })
   @ApiResponse({ status: 404, description: 'Reporte no encontrado' })
   async findOne(@Param('id') id: string): Promise<Report> {
     return this.reportsService.findById(id);
   }
 
-  /**
-   * PUT /reports/:id
-   * Actualización parcial de un reporte. Solo el autor puede editarlo.
-   */
+  // ─── Actualizar ───────────────────────────────────────────────────────────
+
   @Put(':id')
   @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Actualizar reporte', description: 'Edita un reporte propio' })
-  @ApiParam({ name: 'id', description: 'ID del reporte', type: String })
+  @ApiOperation({ summary: 'Actualizar reporte' })
+  @ApiParam({ name: 'id', type: String })
   @ApiBody({ type: UpdateReportDto })
-  @ApiResponse({ status: 200, description: 'Reporte actualizado', type: Report })
-  @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'No permitido' })
   async update(
     @Param('id') id: string,
     @CurrentUser() user: UserFromJwt,
@@ -291,21 +284,13 @@ export class ReportsController {
     return this.reportsService.updateReport(id, user.id, updateReportDto);
   }
 
-  /**
-   * DELETE /reports/:id
-   * Eliminación lógica (soft-delete). Solo el autor puede eliminar. Retorna 204.
-   */
+  // ─── Eliminar ─────────────────────────────────────────────────────────────
+
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtAuthGuard)
-  @ApiOperation({
-    summary: 'Eliminar reporte',
-    description: 'Elimina lógicamente un reporte propio',
-  })
-  @ApiParam({ name: 'id', description: 'ID del reporte', type: String })
-  @ApiResponse({ status: 204, description: 'Reporte eliminado' })
-  @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'No permitido' })
+  @ApiOperation({ summary: 'Eliminar reporte (soft-delete)' })
+  @ApiParam({ name: 'id', type: String })
   async remove(@Param('id') id: string, @CurrentUser() user: UserFromJwt): Promise<void> {
     return this.reportsService.removeReport(id, user.id);
   }

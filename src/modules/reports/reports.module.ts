@@ -6,9 +6,10 @@ import { DatabaseModule } from '../../infrastructure/database';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { AzureStorageModule } from '../../infrastructure/external-services/azure';
 import { LocationModule } from '../location/location.module';
+import { AiModule } from '../ai/ai.module';
 
 @Module({
-  imports: [DatabaseModule, NotificationsModule, AzureStorageModule, LocationModule],
+  imports: [DatabaseModule, NotificationsModule, AzureStorageModule, LocationModule, AiModule],
   controllers: [ReportsController],
   providers: [ReportsService, { provide: 'IReportRepository', useClass: CosmosDbReportRepository }],
   exports: [ReportsService],

@@ -5,6 +5,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'node:path';
 import { AppModule } from './app.module';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { HttpExceptionFilter } from './presentation/filters/http-exception.filter';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -47,6 +48,9 @@ async function bootstrap() {
     app.setGlobalPrefix(apiPrefix, {
       exclude: ['/', 'health', 'info', 'db-health', 'api-docs'],
     });
+
+    // Filtro global de excepciones HTTP
+    app.useGlobalFilters(new HttpExceptionFilter());
 
     // Configurar validación global
     app.useGlobalPipes(
