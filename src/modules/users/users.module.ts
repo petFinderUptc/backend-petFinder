@@ -4,7 +4,7 @@ import { UsersService, PasswordHashService } from '../../application/services';
 import {
   CosmosDbUserRepository,
   DatabaseModule,
-  CosmosDbPostRepository,
+  CosmosDbReportRepository,
 } from '../../infrastructure/database';
 import { AzureStorageModule } from '../../infrastructure/external-services/azure';
 
@@ -19,8 +19,8 @@ import { AzureStorageModule } from '../../infrastructure/external-services/azure
       useClass: CosmosDbUserRepository,
     },
     {
-      provide: 'IPostRepository',
-      useClass: CosmosDbPostRepository,
+      provide: 'IReportRepository',
+      useClass: CosmosDbReportRepository,
     },
   ],
   exports: [UsersService, PasswordHashService],

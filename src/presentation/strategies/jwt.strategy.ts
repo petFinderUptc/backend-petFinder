@@ -32,7 +32,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     if (!user.isActive) {
-      throw new UnauthorizedException('Usuario inactivo');
+      throw new UnauthorizedException('Tu cuenta está inactiva. Contacta al soporte.');
+    }
+
+    if (user.isAccountLocked()) {
+      const minutesLeft = Math.ceil((user.accountLockedUntil!.getTime() - Date.now()) / 60000);
+      throw new UnauthorizedException(
+        `Cuenta bloqueada. Intenta de nuevo en ${minutesLeft} minuto(s).`,
+      );
     }
 
     return {
