@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, Inject, BadRequestException } from '@nestjs/common';
 import { CreateUserDto, UpdateUserDto, UserResponseDto, UserStatsDto } from '../dtos/users';
-import { IUserRepository, IPostRepository } from '../../domain/repositories';
+import { IUserRepository, IReportRepository } from '../../domain/repositories';
 import { User } from '../../domain/entities';
 import { UserRole, PostStatus } from '../../domain/enums';
 import { PasswordHashService } from './password-hash.service';
@@ -11,8 +11,8 @@ export class UsersService {
   constructor(
     @Inject('IUserRepository')
     private readonly userRepository: IUserRepository,
-    @Inject('IPostRepository')
-    private readonly postRepository: IPostRepository,
+    @Inject('IReportRepository')
+    private readonly reportRepository: IReportRepository,
     private readonly passwordHashService: PasswordHashService,
     private readonly azureBlobStorageService: AzureBlobStorageService,
   ) {}
@@ -154,13 +154,13 @@ export class UsersService {
       throw new NotFoundException('Usuario no encontrado');
     }
 
-    const posts = await this.postRepository.findByUserId(userId);
-    const resolvedPosts = posts.filter((post) => post.status === PostStatus.RESOLVED);
+    const reports = await this.reportRepository.findByUserId(userId);
+    const resolvedReports = reports.filter((r) => r.status === PostStatus.RESOLVED);
 
     return {
-      reportsPublished: posts.length,
-      successfulReunions: resolvedPosts.length,
-      helpedPets: resolvedPosts.length,
+      reportsPublished: reports.length,
+      successfulReunions: resolvedReports.length,
+      helpedPets: resolvedReports.length,
       memberSince: user.createdAt.toISOString(),
     };
   }
@@ -206,10 +206,10 @@ export class UsersService {
       throw new BadRequestException('Contrasena incorrecta');
     }
 
-    const userPosts = await this.postRepository.findByUserId(userId);
-    for (const post of userPosts) {
-      post.deactivate();
-      await this.postRepository.update(post.id, post);
+    const userReports = await this.reportRepository.findByUserId(userId);
+    for (const report of userReports) {
+      report.deactivate();
+      await this.reportRepository.update(report.id, report);
     }
 
     await this.azureBlobStorageService.deleteBlobByUrl(user.profileImage);
