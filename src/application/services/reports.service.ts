@@ -14,6 +14,12 @@ import { CreateReportDto } from '../dtos/reports/create-report.dto';
 import { UpdateReportDto } from '../dtos/reports/update-report.dto';
 import { NotificationsService } from './notifications.service';
 import { LocationService } from './location.service';
+import { EmbeddingService } from './embedding.service';
+
+export type ReportWithScore = Report & {
+  similarityScore: number;
+  distanceKm?: number;
+};
 
 @Injectable()
 export class ReportsService {
@@ -24,6 +30,7 @@ export class ReportsService {
     private readonly reportRepository: IReportRepository,
     private readonly notificationsService: NotificationsService,
     private readonly locationService: LocationService,
+    private readonly embeddingService: EmbeddingService,
   ) {}
 
   async createReport(userId: string, dto: CreateReportDto): Promise<Report> {
@@ -33,6 +40,16 @@ export class ReportsService {
       lon: dto.lon,
       locationQuery: dto.locationQuery,
     });
+
+    // Generar embedding antes de crear el reporte
+    const embeddingText = this.embeddingService.buildReportText({
+      species: dto.species,
+      color: dto.color,
+      breed: dto.breed,
+      size: dto.size,
+      description: dto.description,
+    });
+    const embedding = await this.embeddingService.generateEmbedding(embeddingText);
 
     const report = new Report(
       '',
@@ -50,7 +67,7 @@ export class ReportsService {
       coordinates.lon,
       new Date(),
       new Date(),
-      [],
+      embedding,
     );
 
     const created = await this.reportRepository.create(report);
@@ -110,13 +127,24 @@ export class ReportsService {
     };
   }
 
+  /**
+   * Búsqueda semántica con Gemini embeddings + filtro geográfico opcional.
+   * Si Gemini no está disponible, hace fallback a búsqueda por texto (CONTAINS).
+   */
   async search(
     query: string,
     page: number,
     limit: number,
-    filters?: Omit<ReportFilters, 'userId' | 'status' | 'search'>,
+    options?: {
+      lat?: number;
+      lon?: number;
+      radiusKm?: number;
+      species?: ReportFilters['species'];
+      type?: ReportFilters['type'];
+      size?: ReportFilters['size'];
+    },
   ): Promise<{
-    data: Report[];
+    data: ReportWithScore[];
     pagination: {
       page: number;
       limit: number;
@@ -125,17 +153,75 @@ export class ReportsService {
       hasNextPage: boolean;
       hasPrevPage: boolean;
     };
+    isSemanticSearch: boolean;
   }> {
+    const { lat, lon, radiusKm = 15, species, type, size } = options ?? {};
+    const hasGeo = lat !== undefined && lon !== undefined && !isNaN(lat) && !isNaN(lon);
+
+    // Si Gemini no está disponible: fallback a texto
+    if (!this.embeddingService.isAvailable()) {
+      return this.textSearchFallback(query, page, limit, { species, type, size });
+    }
+
+    // 1. Obtener todos los reportes activos con filtros estructurales
     const allActive = await this.reportRepository.findAll({
-      ...filters,
-      search: query,
       status: PostStatus.ACTIVE,
+      species,
+      type,
+      size,
     });
 
-    const total = allActive.length;
+    // 2. Filtrar por radio geográfico si se proporcionaron coordenadas
+    const geoFiltered = hasGeo
+      ? allActive.filter((r) => {
+          if (!r.lat || !r.lon) return false;
+          const dist = this.embeddingService.calculateDistanceKm(lat, lon, r.lat, r.lon);
+          return dist <= radiusKm;
+        })
+      : allActive;
+
+    if (geoFiltered.length === 0) {
+      return this.emptyPaginatedResult(page, limit, true);
+    }
+
+    // 3. Generar embedding de la consulta
+    const queryEmbedding = await this.embeddingService.generateEmbedding(query);
+
+    if (!queryEmbedding.length) {
+      // Si falla la generación del embedding, hacer fallback a texto
+      return this.textSearchFallback(query, page, limit, { species, type, size });
+    }
+
+    // 4. Calcular score combinado para cada reporte
+    const scored: ReportWithScore[] = geoFiltered.map((report) => {
+      const semanticScore = report.embedding?.length
+        ? this.embeddingService.cosineSimilarity(queryEmbedding, report.embedding)
+        : 0;
+
+      let combinedScore = semanticScore;
+      let distanceKm: number | undefined;
+
+      if (hasGeo && report.lat && report.lon) {
+        distanceKm = this.embeddingService.calculateDistanceKm(lat, lon, report.lat, report.lon);
+        const geoScore = Math.max(0, 1 - distanceKm / radiusKm);
+        // 70% semántico + 30% geográfico
+        combinedScore = 0.7 * semanticScore + 0.3 * geoScore;
+      }
+
+      return Object.assign(report, {
+        similarityScore: Math.round(combinedScore * 100) / 100,
+        distanceKm,
+      }) as ReportWithScore;
+    });
+
+    // 5. Ordenar por score descendente
+    scored.sort((a, b) => b.similarityScore - a.similarityScore);
+
+    // 6. Paginar
+    const total = scored.length;
     const totalPages = Math.max(1, Math.ceil(total / limit));
     const offset = (page - 1) * limit;
-    const data = allActive.slice(offset, offset + limit);
+    const data = scored.slice(offset, offset + limit);
 
     return {
       data,
@@ -147,7 +233,65 @@ export class ReportsService {
         hasNextPage: page < totalPages,
         hasPrevPage: page > 1,
       },
+      isSemanticSearch: true,
     };
+  }
+
+  /**
+   * Backfill de embeddings para reportes que no tienen vector generado.
+   * Útil para migrar reportes creados antes de implementar el EmbeddingService.
+   */
+  async backfillEmbeddings(): Promise<{ updated: number; skipped: number; errors: number }> {
+    if (!this.embeddingService.isAvailable()) {
+      throw new BadRequestException('Gemini API no está configurada (GEMINI_API_KEY)');
+    }
+
+    const allReports = await this.reportRepository.findAll();
+    const pending = allReports.filter((r) => !r.embedding || r.embedding.length === 0);
+
+    this.logger.log(`Backfill embeddings: ${pending.length} reportes pendientes`);
+
+    let updated = 0;
+    let skipped = 0;
+    let errors = 0;
+
+    for (const report of pending) {
+      try {
+        const text = this.embeddingService.buildReportText({
+          species: report.species,
+          color: report.color,
+          breed: report.breed,
+          size: report.size,
+          description: report.description,
+        });
+
+        const embedding = await this.embeddingService.generateEmbedding(text);
+
+        if (!embedding.length) {
+          skipped++;
+          continue;
+        }
+
+        const updatedReport = Report.fromPlainObject({
+          ...report.toPlainObject(),
+          embedding,
+        });
+
+        await this.reportRepository.update(report.id, updatedReport);
+        updated++;
+
+        // Respetar el rate limit de Gemini (100 RPM free tier)
+        await new Promise((resolve) => setTimeout(resolve, 700));
+      } catch (error) {
+        this.logger.warn(`Error en backfill para reporte ${report.id}: ${error.message}`);
+        errors++;
+      }
+    }
+
+    this.logger.log(
+      `Backfill completado — updated: ${updated}, skipped: ${skipped}, errors: ${errors}`,
+    );
+    return { updated, skipped, errors };
   }
 
   async exportDataset(): Promise<
@@ -205,9 +349,7 @@ export class ReportsService {
         lon: dto.lon,
         locationQuery: dto.locationQuery,
       },
-      {
-        allowEmpty: true,
-      },
+      { allowEmpty: true },
     );
 
     report.update({
@@ -223,7 +365,36 @@ export class ReportsService {
       lon: coordinates?.lon,
     });
 
-    const updated = await this.reportRepository.update(id, report);
+    // Regenerar embedding si algún campo descriptivo cambió
+    const descriptiveFieldChanged = [
+      dto.species,
+      dto.color,
+      dto.breed,
+      dto.size,
+      dto.description,
+    ].some((f) => f !== undefined);
+
+    let finalReport = report;
+
+    if (descriptiveFieldChanged) {
+      const embeddingText = this.embeddingService.buildReportText({
+        species: report.species,
+        color: report.color,
+        breed: report.breed,
+        size: report.size,
+        description: report.description,
+      });
+      const newEmbedding = await this.embeddingService.generateEmbedding(embeddingText);
+
+      if (newEmbedding.length) {
+        finalReport = Report.fromPlainObject({
+          ...report.toPlainObject(),
+          embedding: newEmbedding,
+        });
+      }
+    }
+
+    const updated = await this.reportRepository.update(id, finalReport);
 
     try {
       await this.notificationsService.create(
@@ -253,6 +424,64 @@ export class ReportsService {
   async getStats(): Promise<{ totalActive: number }> {
     const totalActive = await this.reportRepository.countActive();
     return { totalActive };
+  }
+
+  // ─── helpers privados ─────────────────────────────────────────────────────
+
+  private async textSearchFallback(
+    query: string,
+    page: number,
+    limit: number,
+    filters?: {
+      species?: ReportFilters['species'];
+      type?: ReportFilters['type'];
+      size?: ReportFilters['size'];
+    },
+  ): Promise<{
+    data: ReportWithScore[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+      hasNextPage: boolean;
+      hasPrevPage: boolean;
+    };
+    isSemanticSearch: boolean;
+  }> {
+    const allActive = await this.reportRepository.findAll({
+      ...filters,
+      search: query,
+      status: PostStatus.ACTIVE,
+    });
+
+    const total = allActive.length;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const offset = (page - 1) * limit;
+    const data = allActive
+      .slice(offset, offset + limit)
+      .map((r) => Object.assign(r, { similarityScore: 0 }) as ReportWithScore);
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
+      isSemanticSearch: false,
+    };
+  }
+
+  private emptyPaginatedResult(page: number, limit: number, isSemanticSearch: boolean) {
+    return {
+      data: [] as ReportWithScore[],
+      pagination: { page, limit, total: 0, totalPages: 1, hasNextPage: false, hasPrevPage: false },
+      isSemanticSearch,
+    };
   }
 
   private validateImageUrl(imageUrl: string): void {
