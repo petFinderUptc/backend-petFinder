@@ -58,4 +58,8 @@ export default () => ({
     from: process.env.EMAIL_FROM || 'PetFinder <noreply@petfinder.app>',
     frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
   },
+
+  gemini: {
+    apiKey: process.env.GEMINI_API_KEY || '',
+  },
 });

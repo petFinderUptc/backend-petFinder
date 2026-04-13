@@ -9,15 +9,37 @@ export class EmailService {
   private transporter: Transporter;
 
   constructor(private readonly configService: ConfigService) {
+    const emailUser = this.configService.get<string>('email.user');
+    const emailPass = this.configService.get<string>('email.password');
+    const emailPort = this.configService.get<number>('email.port') || 587;
+    const useSecure = emailPort === 465; // true only for SSL port 465; port 587 uses STARTTLS
+
     this.transporter = nodemailer.createTransport({
       host: this.configService.get<string>('email.host'),
-      port: this.configService.get<number>('email.port'),
-      secure: false, // STARTTLS en puerto 587
+      port: emailPort,
+      secure: useSecure,
+      requireTLS: !useSecure, // Force STARTTLS upgrade on port 587
       auth: {
-        user: this.configService.get<string>('email.user'),
-        pass: this.configService.get<string>('email.password'),
+        user: emailUser,
+        pass: emailPass,
+      },
+      tls: {
+        rejectUnauthorized: false, // Required for some cloud hosting environments
       },
     });
+
+    if (emailUser) {
+      this.transporter
+        .verify()
+        .then(() => {
+          this.logger.log('Servidor SMTP conectado correctamente');
+        })
+        .catch((err) => {
+          this.logger.warn(
+            `No se pudo verificar conexión SMTP: ${err.message}. Los correos podrían no enviarse.`,
+          );
+        });
+    }
   }
 
   async sendPasswordResetEmail(to: string, resetToken: string): Promise<void> {
