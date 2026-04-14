@@ -5,6 +5,7 @@ import { AuthService } from './auth.service';
 import { UsersService } from './users.service';
 import { PasswordHashService } from './password-hash.service';
 import { RefreshTokenSessionService } from './refresh-token-session.service';
+import { EmailService } from '../../infrastructure/email/email.service';
 import { User } from '../../domain/entities';
 import { UserRole } from '../../domain/enums';
 
@@ -28,6 +29,8 @@ describe('AuthService', () => {
   let passwordHashService: jest.Mocked<Partial<PasswordHashService>>;
   let jwtService: jest.Mocked<Partial<JwtService>>;
   let refreshTokenSessionService: jest.Mocked<Partial<RefreshTokenSessionService>>;
+  let emailService: jest.Mocked<Partial<EmailService>>;
+  let userRepository: { findByEmail: jest.Mock; update: jest.Mock };
 
   beforeEach(async () => {
     usersService = {
@@ -49,6 +52,14 @@ describe('AuthService', () => {
         tokenType: 'Bearer',
       }),
     };
+    emailService = {
+      sendPasswordResetEmail: jest.fn().mockResolvedValue(undefined),
+      sendEmailVerification: jest.fn().mockResolvedValue(undefined),
+    };
+    userRepository = {
+      findByEmail: jest.fn(),
+      update: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -57,6 +68,8 @@ describe('AuthService', () => {
         { provide: PasswordHashService, useValue: passwordHashService },
         { provide: JwtService, useValue: jwtService },
         { provide: RefreshTokenSessionService, useValue: refreshTokenSessionService },
+        { provide: EmailService, useValue: emailService },
+        { provide: 'IUserRepository', useValue: userRepository },
       ],
     }).compile();
 
@@ -94,7 +107,8 @@ describe('AuthService', () => {
   describe('login', () => {
     it('should login successfully with valid credentials', async () => {
       const user = makeUser();
-      (usersService.findByEmail as jest.Mock).mockResolvedValue(user);
+      userRepository.findByEmail.mockResolvedValue(user);
+      userRepository.update.mockResolvedValue(user);
       (passwordHashService.compare as jest.Mock).mockResolvedValue(true);
 
       const result = await service.login({ email: 'test@example.com', password: 'Pass123!' });
@@ -105,7 +119,7 @@ describe('AuthService', () => {
     });
 
     it('should throw UnauthorizedException if user not found', async () => {
-      (usersService.findByEmail as jest.Mock).mockResolvedValue(null);
+      userRepository.findByEmail.mockResolvedValue(null);
 
       await expect(
         service.login({ email: 'ghost@example.com', password: 'Pass123!' }),
@@ -114,7 +128,8 @@ describe('AuthService', () => {
 
     it('should throw UnauthorizedException if password is wrong', async () => {
       const user = makeUser();
-      (usersService.findByEmail as jest.Mock).mockResolvedValue(user);
+      userRepository.findByEmail.mockResolvedValue(user);
+      userRepository.update.mockResolvedValue(user);
       (passwordHashService.compare as jest.Mock).mockResolvedValue(false);
 
       await expect(
@@ -125,7 +140,8 @@ describe('AuthService', () => {
     it('should throw UnauthorizedException if user is inactive', async () => {
       const user = makeUser();
       user.deactivate();
-      (usersService.findByEmail as jest.Mock).mockResolvedValue(user);
+      userRepository.findByEmail.mockResolvedValue(user);
+      userRepository.update.mockResolvedValue(user);
       (passwordHashService.compare as jest.Mock).mockResolvedValue(true);
 
       await expect(
