@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { PasswordHashService } from './password-hash.service';
-import { IUserRepository, IPostRepository } from '../../domain/repositories';
+import { IUserRepository, IReportRepository } from '../../domain/repositories';
 import { User } from '../../domain/entities';
 import { UserRole } from '../../domain/enums';
 import { AzureBlobStorageService } from '../../infrastructure/external-services/azure';
@@ -54,11 +54,10 @@ const mockPasswordHashService = () => ({
   needsRehash: jest.fn().mockReturnValue(false),
 });
 
-const mockPostRepository = (): jest.Mocked<IPostRepository> => ({
+const mockReportRepository = (): jest.Mocked<IReportRepository> => ({
   create: jest.fn(),
   findById: jest.fn(),
   findAll: jest.fn(),
-  findByFilters: jest.fn(),
   findByUserId: jest.fn(),
   update: jest.fn(),
   delete: jest.fn(),
@@ -77,13 +76,13 @@ const mockAzureBlobStorageService = () => ({
 describe('UsersService', () => {
   let service: UsersService;
   let repo: jest.Mocked<IUserRepository>;
-  let postRepo: jest.Mocked<IPostRepository>;
+  let reportRepo: jest.Mocked<IReportRepository>;
   let passwordHash: ReturnType<typeof mockPasswordHashService>;
   let azureBlobStorage: ReturnType<typeof mockAzureBlobStorageService>;
 
   beforeEach(async () => {
     repo = mockUserRepository();
-    postRepo = mockPostRepository();
+    reportRepo = mockReportRepository();
     passwordHash = mockPasswordHashService();
     azureBlobStorage = mockAzureBlobStorageService();
 
@@ -91,7 +90,7 @@ describe('UsersService', () => {
       providers: [
         UsersService,
         { provide: 'IUserRepository', useValue: repo },
-        { provide: 'IPostRepository', useValue: postRepo },
+        { provide: 'IReportRepository', useValue: reportRepo },
         { provide: PasswordHashService, useValue: passwordHash },
         { provide: AzureBlobStorageService, useValue: azureBlobStorage },
       ],
