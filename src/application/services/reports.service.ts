@@ -142,6 +142,8 @@ export class ReportsService {
       species?: ReportFilters['species'];
       type?: ReportFilters['type'];
       size?: ReportFilters['size'];
+      color?: string;
+      breed?: string;
     },
   ): Promise<{
     data: ReportWithScore[];
@@ -155,12 +157,12 @@ export class ReportsService {
     };
     isSemanticSearch: boolean;
   }> {
-    const { lat, lon, radiusKm = 15, species, type, size } = options ?? {};
+    const { lat, lon, radiusKm = 15, species, type, size, color, breed } = options ?? {};
     const hasGeo = lat !== undefined && lon !== undefined && !isNaN(lat) && !isNaN(lon);
 
     // Si Gemini no está disponible: fallback a texto
     if (!this.embeddingService.isAvailable()) {
-      return this.textSearchFallback(query, page, limit, { species, type, size });
+      return this.textSearchFallback(query, page, limit, { species, type, size, color, breed });
     }
 
     // 1. Obtener todos los reportes activos con filtros estructurales
@@ -169,6 +171,8 @@ export class ReportsService {
       species,
       type,
       size,
+      color,
+      breed,
     });
 
     // 2. Filtrar por radio geográfico si se proporcionaron coordenadas
@@ -436,6 +440,8 @@ export class ReportsService {
       species?: ReportFilters['species'];
       type?: ReportFilters['type'];
       size?: ReportFilters['size'];
+      color?: string;
+      breed?: string;
     },
   ): Promise<{
     data: ReportWithScore[];

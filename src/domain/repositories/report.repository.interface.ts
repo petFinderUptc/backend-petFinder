@@ -8,6 +8,8 @@ export interface ReportFilters {
   size?: PetSize;
   userId?: string;
   search?: string;
+  color?: string;
+  breed?: string;
 }
 
 export interface IReportRepository {
