@@ -73,11 +73,21 @@ export class ReportsService {
     const created = await this.reportRepository.create(report);
 
     try {
+      const speciesEs: Record<string, string> = {
+        dog: 'perro',
+        cat: 'gato',
+        bird: 'ave',
+        rabbit: 'conejo',
+        other: 'mascota',
+      };
+      const typeEs = created.type === 'found' ? 'encontrado' : 'perdido';
+      const petDesc = `${speciesEs[created.species] ?? 'mascota'} ${typeEs}`;
+
       await this.notificationsService.create(
         userId,
         NotificationType.UPDATE,
-        'Reporte creado',
-        `Tu reporte ${created.id} fue publicado correctamente.`,
+        'Reporte publicado',
+        `Tu reporte de ${petDesc} fue publicado correctamente.`,
         created.id,
       );
     } catch (error) {
@@ -401,11 +411,21 @@ export class ReportsService {
     const updated = await this.reportRepository.update(id, finalReport);
 
     try {
+      const speciesEsUpd: Record<string, string> = {
+        dog: 'perro',
+        cat: 'gato',
+        bird: 'ave',
+        rabbit: 'conejo',
+        other: 'mascota',
+      };
+      const typeEsUpd = report.type === 'found' ? 'encontrado' : 'perdido';
+      const petDescUpd = `${speciesEsUpd[report.species] ?? 'mascota'} ${typeEsUpd}`;
+
       await this.notificationsService.create(
         userId,
         NotificationType.UPDATE,
         'Reporte actualizado',
-        `Tu reporte ${report.id} fue editado correctamente.`,
+        `Tu reporte de ${petDescUpd} fue actualizado correctamente.`,
         report.id,
       );
     } catch (error) {
