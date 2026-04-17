@@ -7,7 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Report } from '../../domain/entities/report.entity';
-import { PostStatus } from '../../domain/enums';
+import { PostStatus, PostType } from '../../domain/enums';
 import { IReportRepository, ReportFilters } from '../../domain/repositories';
 import { NotificationType } from '../../domain/entities';
 import { CreateReportDto } from '../dtos/reports/create-report.dto';
@@ -428,6 +428,23 @@ export class ReportsService {
   async getStats(): Promise<{ totalActive: number }> {
     const totalActive = await this.reportRepository.countActive();
     return { totalActive };
+  }
+
+  async getPublicStats(): Promise<{
+    lost: number;
+    found: number;
+    resolved: number;
+    totalActive: number;
+  }> {
+    const [active, resolved] = await Promise.all([
+      this.reportRepository.findAll({ status: PostStatus.ACTIVE }),
+      this.reportRepository.findAll({ status: PostStatus.RESOLVED }),
+    ]);
+
+    const lost = active.filter((r) => r.type === PostType.LOST).length;
+    const found = active.filter((r) => r.type === PostType.FOUND).length;
+
+    return { lost, found, resolved: resolved.length, totalActive: active.length };
   }
 
   // ─── helpers privados ─────────────────────────────────────────────────────

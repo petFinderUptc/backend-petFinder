@@ -275,6 +275,35 @@ export class ReportsController {
     return this.reportsService.findMyReports(user.id);
   }
 
+  // ─── Estadísticas públicas ────────────────────────────────────────────────
+
+  @Get('stats')
+  @ApiOperation({
+    summary: 'Estadísticas públicas',
+    description: 'Retorna conteo de reportes perdidos, encontrados y resueltos (sin autenticación)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Estadísticas calculadas',
+    schema: {
+      type: 'object',
+      properties: {
+        lost: { type: 'number' },
+        found: { type: 'number' },
+        resolved: { type: 'number' },
+        totalActive: { type: 'number' },
+      },
+    },
+  })
+  async getPublicStats(): Promise<{
+    lost: number;
+    found: number;
+    resolved: number;
+    totalActive: number;
+  }> {
+    return this.reportsService.getPublicStats();
+  }
+
   // ─── Detalle ──────────────────────────────────────────────────────────────
 
   @Get(':id')
