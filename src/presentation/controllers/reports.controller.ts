@@ -108,6 +108,8 @@ export class ReportsController {
   @ApiQuery({ name: 'species', required: false, enum: PetType })
   @ApiQuery({ name: 'type', required: false, enum: PostType })
   @ApiQuery({ name: 'size', required: false, enum: PetSize })
+  @ApiQuery({ name: 'color', required: false, type: String })
+  @ApiQuery({ name: 'breed', required: false, type: String })
   @ApiResponse({ status: 200, description: 'Listado obtenido', type: [Report] })
   async findAll(
     @Query('page') page = '1',
@@ -116,6 +118,8 @@ export class ReportsController {
     @Query('species') species?: PetType,
     @Query('type') type?: PostType,
     @Query('size') size?: PetSize,
+    @Query('color') color?: string,
+    @Query('breed') breed?: string,
   ) {
     const parsedPage = Number(page);
     const parsedLimit = Number(limit);
@@ -125,7 +129,14 @@ export class ReportsController {
     if (!Number.isInteger(parsedLimit) || parsedLimit < 1 || parsedLimit > 100)
       throw new BadRequestException('El parámetro limit debe ser un entero entre 1 y 100');
 
-    return this.reportsService.findAll(parsedPage, parsedLimit, { search, species, type, size });
+    return this.reportsService.findAll(parsedPage, parsedLimit, {
+      search,
+      species,
+      type,
+      size,
+      color: color?.trim() || undefined,
+      breed: breed?.trim() || undefined,
+    });
   }
 
   // ─── Búsqueda semántica ───────────────────────────────────────────────────
@@ -151,6 +162,8 @@ export class ReportsController {
   @ApiQuery({ name: 'species', required: false, enum: PetType })
   @ApiQuery({ name: 'type', required: false, enum: PostType })
   @ApiQuery({ name: 'size', required: false, enum: PetSize })
+  @ApiQuery({ name: 'color', required: false, type: String })
+  @ApiQuery({ name: 'breed', required: false, type: String })
   async search(
     @Query('query') query: string,
     @Query('page') page = '1',
@@ -161,6 +174,8 @@ export class ReportsController {
     @Query('species') species?: PetType,
     @Query('type') type?: PostType,
     @Query('size') size?: PetSize,
+    @Query('color') color?: string,
+    @Query('breed') breed?: string,
   ): Promise<{
     data: ReportWithScore[];
     pagination: {
@@ -195,6 +210,8 @@ export class ReportsController {
       species,
       type,
       size,
+      color: color?.trim() || undefined,
+      breed: breed?.trim() || undefined,
     });
   }
 
@@ -256,6 +273,35 @@ export class ReportsController {
   })
   async findMyReports(@CurrentUser() user: UserFromJwt): Promise<Report[]> {
     return this.reportsService.findMyReports(user.id);
+  }
+
+  // ─── Estadísticas públicas ────────────────────────────────────────────────
+
+  @Get('stats')
+  @ApiOperation({
+    summary: 'Estadísticas públicas',
+    description: 'Retorna conteo de reportes perdidos, encontrados y resueltos (sin autenticación)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Estadísticas calculadas',
+    schema: {
+      type: 'object',
+      properties: {
+        lost: { type: 'number' },
+        found: { type: 'number' },
+        resolved: { type: 'number' },
+        totalActive: { type: 'number' },
+      },
+    },
+  })
+  async getPublicStats(): Promise<{
+    lost: number;
+    found: number;
+    resolved: number;
+    totalActive: number;
+  }> {
+    return this.reportsService.getPublicStats();
   }
 
   // ─── Detalle ──────────────────────────────────────────────────────────────

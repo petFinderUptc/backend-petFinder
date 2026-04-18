@@ -7,7 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Report } from '../../domain/entities/report.entity';
-import { PostStatus } from '../../domain/enums';
+import { PostStatus, PostType } from '../../domain/enums';
 import { IReportRepository, ReportFilters } from '../../domain/repositories';
 import { NotificationType } from '../../domain/entities';
 import { CreateReportDto } from '../dtos/reports/create-report.dto';
@@ -73,11 +73,21 @@ export class ReportsService {
     const created = await this.reportRepository.create(report);
 
     try {
+      const speciesEs: Record<string, string> = {
+        dog: 'perro',
+        cat: 'gato',
+        bird: 'ave',
+        rabbit: 'conejo',
+        other: 'mascota',
+      };
+      const typeEs = created.type === 'found' ? 'encontrado' : 'perdido';
+      const petDesc = `${speciesEs[created.species] ?? 'mascota'} ${typeEs}`;
+
       await this.notificationsService.create(
         userId,
         NotificationType.UPDATE,
-        'Reporte creado',
-        `Tu reporte ${created.id} fue publicado correctamente.`,
+        'Reporte publicado',
+        `Tu reporte de ${petDesc} fue publicado correctamente.`,
         created.id,
       );
     } catch (error) {
@@ -142,6 +152,8 @@ export class ReportsService {
       species?: ReportFilters['species'];
       type?: ReportFilters['type'];
       size?: ReportFilters['size'];
+      color?: string;
+      breed?: string;
     },
   ): Promise<{
     data: ReportWithScore[];
@@ -155,12 +167,12 @@ export class ReportsService {
     };
     isSemanticSearch: boolean;
   }> {
-    const { lat, lon, radiusKm = 15, species, type, size } = options ?? {};
+    const { lat, lon, radiusKm = 15, species, type, size, color, breed } = options ?? {};
     const hasGeo = lat !== undefined && lon !== undefined && !isNaN(lat) && !isNaN(lon);
 
     // Si Gemini no está disponible: fallback a texto
     if (!this.embeddingService.isAvailable()) {
-      return this.textSearchFallback(query, page, limit, { species, type, size });
+      return this.textSearchFallback(query, page, limit, { species, type, size, color, breed });
     }
 
     // 1. Obtener todos los reportes activos con filtros estructurales
@@ -169,6 +181,8 @@ export class ReportsService {
       species,
       type,
       size,
+      color,
+      breed,
     });
 
     // 2. Filtrar por radio geográfico si se proporcionaron coordenadas
@@ -397,11 +411,21 @@ export class ReportsService {
     const updated = await this.reportRepository.update(id, finalReport);
 
     try {
+      const speciesEsUpd: Record<string, string> = {
+        dog: 'perro',
+        cat: 'gato',
+        bird: 'ave',
+        rabbit: 'conejo',
+        other: 'mascota',
+      };
+      const typeEsUpd = report.type === 'found' ? 'encontrado' : 'perdido';
+      const petDescUpd = `${speciesEsUpd[report.species] ?? 'mascota'} ${typeEsUpd}`;
+
       await this.notificationsService.create(
         userId,
         NotificationType.UPDATE,
         'Reporte actualizado',
-        `Tu reporte ${report.id} fue editado correctamente.`,
+        `Tu reporte de ${petDescUpd} fue actualizado correctamente.`,
         report.id,
       );
     } catch (error) {
@@ -426,6 +450,23 @@ export class ReportsService {
     return { totalActive };
   }
 
+  async getPublicStats(): Promise<{
+    lost: number;
+    found: number;
+    resolved: number;
+    totalActive: number;
+  }> {
+    const [active, resolved] = await Promise.all([
+      this.reportRepository.findAll({ status: PostStatus.ACTIVE }),
+      this.reportRepository.findAll({ status: PostStatus.RESOLVED }),
+    ]);
+
+    const lost = active.filter((r) => r.type === PostType.LOST).length;
+    const found = active.filter((r) => r.type === PostType.FOUND).length;
+
+    return { lost, found, resolved: resolved.length, totalActive: active.length };
+  }
+
   // ─── helpers privados ─────────────────────────────────────────────────────
 
   private async textSearchFallback(
@@ -436,6 +477,8 @@ export class ReportsService {
       species?: ReportFilters['species'];
       type?: ReportFilters['type'];
       size?: ReportFilters['size'];
+      color?: string;
+      breed?: string;
     },
   ): Promise<{
     data: ReportWithScore[];

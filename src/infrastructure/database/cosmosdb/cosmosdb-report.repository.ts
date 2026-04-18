@@ -72,6 +72,14 @@ export class CosmosDbReportRepository implements IReportRepository {
       );
       parameters.push({ name: '@search', value: filters.search });
     }
+    if (filters?.color) {
+      conditions.push('CONTAINS(c.color, @color, true)');
+      parameters.push({ name: '@color', value: filters.color });
+    }
+    if (filters?.breed) {
+      conditions.push('CONTAINS(c.breed, @breed, true)');
+      parameters.push({ name: '@breed', value: filters.breed });
+    }
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     const query = `SELECT * FROM c ${where} ORDER BY c.createdAt DESC`;
