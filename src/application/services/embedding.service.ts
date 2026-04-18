@@ -88,4 +88,109 @@ export class EmbeddingService {
   isAvailable(): boolean {
     return this.genAI !== null;
   }
+
+  /**
+   * Analiza una foto de mascota con Gemini Vision y extrae sus características.
+   * Retorna null si la API no está disponible o la imagen no es procesable.
+   */
+  async analyzePhoto(
+    buffer: Buffer,
+    mimeType: string,
+  ): Promise<{
+    species: string;
+    breed: string;
+    color: string;
+    size: string;
+    description: string;
+  } | null> {
+    if (!this.genAI) return null;
+
+    try {
+      const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const base64 = buffer.toString('base64');
+
+      const prompt = `Analiza esta foto de una mascota y responde ÚNICAMENTE con un objeto JSON válido con estos campos exactos:
+{
+  "species": "uno exacto de: dog, cat, bird, rabbit, other",
+  "breed": "raza en español (ej: Labrador Dorado, Mestizo, Siamés, desconocida)",
+  "color": "color(es) del pelaje en español (ej: café y blanco, negro, anaranjado)",
+  "size": "uno exacto de: small, medium, large",
+  "description": "2-3 oraciones describiendo rasgos distintivos: marcas, collar, postura, estado de salud aparente, en español"
+}
+No incluyas ningún texto fuera del JSON. Si no puedes determinar un campo con certeza, usa el valor más probable.`;
+
+      const result = await model.generateContent([
+        { inlineData: { data: base64, mimeType } },
+        prompt,
+      ]);
+
+      const text = result.response.text().trim();
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) return null;
+
+      const parsed = JSON.parse(jsonMatch[0]);
+
+      // Validar que los enums sean correctos
+      const validSpecies = ['dog', 'cat', 'bird', 'rabbit', 'other'];
+      const validSizes = ['small', 'medium', 'large'];
+      if (!validSpecies.includes(parsed.species)) parsed.species = 'other';
+      if (!validSizes.includes(parsed.size)) parsed.size = 'medium';
+
+      return {
+        species: parsed.species,
+        breed: String(parsed.breed || '').slice(0, 60),
+        color: String(parsed.color || '').slice(0, 50),
+        size: parsed.size,
+        description: String(parsed.description || '').slice(0, 500),
+      };
+    } catch (error) {
+      this.logger.warn(`Error en análisis de foto con Vision: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Genera un resumen breve de un reporte para compartir en redes sociales.
+   * Retorna null si la API no está disponible.
+   */
+  async generateReportSummary(report: {
+    species: string;
+    type: string;
+    breed: string;
+    color: string;
+    size: string;
+    description: string;
+  }): Promise<string | null> {
+    if (!this.genAI) return null;
+
+    try {
+      const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+      const speciesMap: Record<string, string> = {
+        dog: 'perro',
+        cat: 'gato',
+        bird: 'ave',
+        rabbit: 'conejo',
+        other: 'mascota',
+      };
+      const typeMap: Record<string, string> = { lost: 'perdido', found: 'encontrado' };
+      const sizeMap: Record<string, string> = {
+        small: 'pequeño',
+        medium: 'mediano',
+        large: 'grande',
+      };
+
+      const prompt = `Genera un resumen breve en español (máximo 3 oraciones) sobre esta mascota para publicar en redes sociales y ayudar a encontrarla.
+Datos: ${speciesMap[report.species] ?? 'mascota'} ${typeMap[report.type] ?? ''}, raza: ${report.breed}, color: ${report.color}, tamaño: ${sizeMap[report.size] ?? report.size}.
+Descripción original: ${report.description}
+El resumen debe ser conciso, claro y destacar los rasgos más útiles para identificar la mascota. Solo el texto, sin comillas, sin formato adicional.`;
+
+      const result = await model.generateContent(prompt);
+      const summary = result.response.text().trim();
+      return summary.slice(0, 600) || null;
+    } catch (error) {
+      this.logger.warn(`Error generando resumen IA: ${error.message}`);
+      return null;
+    }
+  }
 }

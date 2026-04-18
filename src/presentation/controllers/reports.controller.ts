@@ -14,6 +14,7 @@ import {
   UseInterceptors,
   UploadedFile,
   InternalServerErrorException,
+  ServiceUnavailableException,
   Header,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -276,6 +277,68 @@ export class ReportsController {
   })
   async findMyReports(@CurrentUser() user: UserFromJwt): Promise<Report[]> {
     return this.reportsService.findMyReports(user.id);
+  }
+
+  // ─── Análisis de foto con IA ──────────────────────────────────────────────
+
+  @Post('analyze-photo')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('image', {
+      limits: { fileSize: 5 * 1024 * 1024 },
+      fileFilter: (req, file, callback) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|webp)$/)) {
+          return callback(
+            new BadRequestException('Solo se permiten imágenes jpg, png o webp'),
+            false,
+          );
+        }
+        callback(null, true);
+      },
+    }),
+  )
+  @ApiOperation({
+    summary: 'Analizar foto de mascota con IA',
+    description:
+      'Recibe una imagen y usa Gemini Vision para inferir especie, raza, color, tamaño y descripción.',
+  })
+  @ApiResponse({ status: 200, description: 'Análisis completado' })
+  @ApiResponse({ status: 503, description: 'Gemini Vision no disponible' })
+  async analyzePhoto(
+    @UploadedFile() file: any,
+  ): Promise<{ species: string; breed: string; color: string; size: string; description: string }> {
+    if (!file) throw new BadRequestException('Imagen requerida');
+    const result = await this.reportsService.analyzePhoto(file.buffer, file.mimetype);
+    if (!result)
+      throw new ServiceUnavailableException(
+        'El servicio de análisis de imágenes no está disponible',
+      );
+    return result;
+  }
+
+  // ─── Matches de un reporte ────────────────────────────────────────────────
+
+  @Get(':id/matches')
+  @ApiOperation({
+    summary: 'Buscar coincidencias para un reporte',
+    description:
+      'Usa embeddings semánticos para encontrar reportes del tipo opuesto (perdido↔hallado) similares.',
+  })
+  @ApiParam({ name: 'id', type: String })
+  async findMatches(@Param('id') id: string): Promise<{ data: unknown[]; total: number }> {
+    return this.reportsService.findMatches(id);
+  }
+
+  // ─── Resumen IA de un reporte ─────────────────────────────────────────────
+
+  @Get(':id/summary')
+  @ApiOperation({
+    summary: 'Resumen IA del reporte',
+    description: 'Genera un resumen breve con Gemini para compartir en redes sociales.',
+  })
+  @ApiParam({ name: 'id', type: String })
+  async getReportSummary(@Param('id') id: string): Promise<{ summary: string | null }> {
+    return this.reportsService.getReportSummary(id);
   }
 
   // ─── Estadísticas públicas ────────────────────────────────────────────────

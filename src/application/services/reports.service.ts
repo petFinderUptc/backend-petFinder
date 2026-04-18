@@ -7,7 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Report } from '../../domain/entities/report.entity';
-import { PostStatus, PostType } from '../../domain/enums';
+import { PostStatus, PostType, PetType } from '../../domain/enums';
 import { IReportRepository, ReportFilters } from '../../domain/repositories';
 import { NotificationType } from '../../domain/entities';
 import { CreateReportDto } from '../dtos/reports/create-report.dto';
@@ -509,6 +509,92 @@ export class ReportsService {
   }
 
   // ─── helpers privados ─────────────────────────────────────────────────────
+
+  /** Analiza una foto de mascota con Gemini Vision y retorna los campos inferidos. */
+  async analyzePhoto(
+    buffer: Buffer,
+    mimeType: string,
+  ): Promise<{
+    species: string;
+    breed: string;
+    color: string;
+    size: string;
+    description: string;
+  } | null> {
+    return this.embeddingService.analyzePhoto(buffer, mimeType);
+  }
+
+  /**
+   * Busca reportes del tipo opuesto (lost→found / found→lost) similares al reporte dado.
+   * Usa embeddings semánticos para calcular similitud y retorna el top 5.
+   */
+  async findMatches(reportId: string): Promise<{ data: ReportWithScore[]; total: number }> {
+    const report = await this.reportRepository.findById(reportId);
+    if (!report) throw new NotFoundException('Reporte no encontrado');
+
+    if (!report.embedding?.length || !this.embeddingService.isAvailable()) {
+      return { data: [], total: 0 };
+    }
+
+    const oppositeType = report.type === PostType.LOST ? PostType.FOUND : PostType.LOST;
+
+    const candidates = await this.reportRepository.findAll({
+      status: PostStatus.ACTIVE,
+      type: oppositeType,
+      species: report.species as unknown as PetType,
+    });
+
+    const filtered = candidates.filter((c) => c.id !== reportId);
+    if (!filtered.length) return { data: [], total: 0 };
+
+    const scored: ReportWithScore[] = filtered
+      .map((candidate) => {
+        const semanticScore = candidate.embedding?.length
+          ? this.embeddingService.cosineSimilarity(report.embedding, candidate.embedding)
+          : 0;
+
+        let combinedScore = semanticScore;
+        let distanceKm: number | undefined;
+
+        if (report.lat && report.lon && candidate.lat && candidate.lon) {
+          distanceKm = this.embeddingService.calculateDistanceKm(
+            report.lat,
+            report.lon,
+            candidate.lat,
+            candidate.lon,
+          );
+          const geoScore = Math.max(0, 1 - distanceKm / 50);
+          combinedScore = 0.7 * semanticScore + 0.3 * geoScore;
+        }
+
+        return Object.assign(candidate, {
+          similarityScore: Math.round(combinedScore * 100) / 100,
+          distanceKm,
+        }) as ReportWithScore;
+      })
+      .filter((r) => r.similarityScore >= 0.25)
+      .sort((a, b) => b.similarityScore - a.similarityScore)
+      .slice(0, 5);
+
+    return { data: scored, total: scored.length };
+  }
+
+  /** Genera un resumen breve del reporte usando Gemini. */
+  async getReportSummary(id: string): Promise<{ summary: string | null }> {
+    const report = await this.reportRepository.findById(id);
+    if (!report || !report.isActive()) throw new NotFoundException('Reporte no encontrado');
+
+    const summary = await this.embeddingService.generateReportSummary({
+      species: report.species,
+      type: report.type,
+      breed: report.breed,
+      color: report.color,
+      size: report.size,
+      description: report.description,
+    });
+
+    return { summary };
+  }
 
   private async textSearchFallback(
     query: string,
