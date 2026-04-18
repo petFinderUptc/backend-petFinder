@@ -32,8 +32,11 @@ import { UpdateReportDto } from '../../application/dtos/reports/update-report.dt
 import { Report } from '../../domain/entities/report.entity';
 import { PetSize, PetType, PostType } from '../../domain/enums';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
+import { RolesGuard } from '../guards/roles.guard';
+import { Roles } from '../decorators/roles.decorator';
 import { CurrentUser, UserFromJwt } from '../decorators/current-user.decorator';
 import { AzureBlobStorageService } from '../../infrastructure/external-services/azure';
+import { UserRole } from '../../domain/enums';
 
 @ApiTags('Reports')
 @ApiBearerAuth('JWT')
@@ -339,5 +342,31 @@ export class ReportsController {
   @ApiParam({ name: 'id', type: String })
   async remove(@Param('id') id: string, @CurrentUser() user: UserFromJwt): Promise<void> {
     return this.reportsService.removeReport(id, user.id);
+  }
+
+  // ─── Admin: listar todos ──────────────────────────────────────────────────
+
+  @Get('admin/all')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Admin: listar todos los reportes (incluye inactivos)' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async adminFindAll(@Query('page') page = '1', @Query('limit') limit = '20') {
+    const parsedPage = Math.max(1, Number(page) || 1);
+    const parsedLimit = Math.min(100, Math.max(1, Number(limit) || 20));
+    return this.reportsService.adminFindAll(parsedPage, parsedLimit);
+  }
+
+  // ─── Admin: eliminar cualquier reporte ───────────────────────────────────
+
+  @Delete('admin/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Admin: eliminar cualquier reporte sin verificar propiedad' })
+  @ApiParam({ name: 'id', type: String })
+  async adminRemove(@Param('id') id: string): Promise<void> {
+    return this.reportsService.adminRemoveReport(id);
   }
 }

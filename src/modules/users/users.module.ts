@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { UsersController } from '../../presentation/controllers';
 import { UsersService, PasswordHashService } from '../../application/services';
+import { AdminSeedService } from '../../application/services/admin-seed.service';
 import {
   CosmosDbUserRepository,
   DatabaseModule,
@@ -14,6 +15,7 @@ import { AzureStorageModule } from '../../infrastructure/external-services/azure
   providers: [
     UsersService,
     PasswordHashService,
+    AdminSeedService,
     {
       provide: 'IUserRepository',
       useClass: CosmosDbUserRepository,

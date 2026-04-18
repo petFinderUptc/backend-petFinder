@@ -6,6 +6,7 @@ import {
   IsString,
   IsUrl,
   Max,
+  MaxLength,
   Min,
   MinLength,
 } from 'class-validator';
@@ -29,18 +30,21 @@ export class UpdateReportDto {
   @IsOptional()
   @IsString()
   @MinLength(10)
+  @MaxLength(500)
   description?: string;
 
   @ApiPropertyOptional({ example: 'Negro', description: 'Color' })
   @IsOptional()
   @IsString()
   @MinLength(2)
+  @MaxLength(50)
   color?: string;
 
   @ApiPropertyOptional({ example: 'Criollo', description: 'Raza' })
   @IsOptional()
   @IsString()
   @MinLength(2)
+  @MaxLength(60)
   breed?: string;
 
   @ApiPropertyOptional({ enum: PetSize, description: 'Tamaño' })
@@ -52,6 +56,7 @@ export class UpdateReportDto {
   @IsOptional()
   @IsString()
   @MinLength(5)
+  @MaxLength(100)
   contact?: string;
 
   @ApiPropertyOptional({ example: 'https://example.com/img.png', description: 'URL de imagen' })
@@ -76,5 +81,6 @@ export class UpdateReportDto {
   @IsOptional()
   @IsString()
   @MinLength(5)
+  @MaxLength(200)
   locationQuery?: string;
 }
