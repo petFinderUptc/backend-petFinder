@@ -6,6 +6,7 @@ import {
   IsString,
   IsUrl,
   Max,
+  MaxLength,
   Min,
   MinLength,
 } from 'class-validator';
@@ -30,16 +31,19 @@ export class CreateReportDto {
   })
   @IsString()
   @MinLength(10)
+  @MaxLength(500)
   description: string;
 
   @ApiProperty({ example: 'Marrón', description: 'Color de la mascota' })
   @IsString()
   @MinLength(2)
+  @MaxLength(50)
   color: string;
 
   @ApiProperty({ example: 'Labrador', description: 'Raza de la mascota' })
   @IsString()
   @MinLength(2)
+  @MaxLength(60)
   breed: string;
 
   @ApiProperty({ enum: PetSize, description: 'Tamaño de la mascota' })
@@ -49,6 +53,7 @@ export class CreateReportDto {
   @ApiProperty({ example: '+573001234567', description: 'Contacto del reportante' })
   @IsString()
   @MinLength(5)
+  @MaxLength(100)
   contact: string;
 
   @ApiProperty({
@@ -73,5 +78,6 @@ export class CreateReportDto {
   @IsOptional()
   @IsString()
   @MinLength(5)
+  @MaxLength(200)
   locationQuery?: string;
 }
