@@ -12,6 +12,7 @@ import {
   MaxLength,
   IsOptional,
   IsPhoneNumber,
+  IsBoolean,
   Matches,
 } from 'class-validator';
 import { UserRole } from '../../../domain/enums';
@@ -124,6 +125,11 @@ export class UpdateUserDto {
   @IsString()
   @MaxLength(500)
   bio?: string;
+
+  @ApiPropertyOptional({ example: true, description: 'Recibir notificaciones en plataforma' })
+  @IsOptional()
+  @IsBoolean()
+  notificationsEnabled?: boolean;
 }
 
 /**
@@ -178,6 +184,9 @@ export class UserResponseDto {
 
   @ApiProperty({ example: true, description: 'Teléfono verificado' })
   phoneVerified: boolean;
+
+  @ApiPropertyOptional({ example: true, description: 'Recibir notificaciones en plataforma' })
+  notificationsEnabled?: boolean;
 
   @ApiPropertyOptional({
     example: '2025-01-01T12:00:00.000Z',

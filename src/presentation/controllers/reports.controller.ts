@@ -27,10 +27,11 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 import { ReportsService, ReportWithScore } from '../../application/services/reports.service';
+import { VisionService } from '../../application/services/vision.service';
 import { CreateReportDto } from '../../application/dtos/reports/create-report.dto';
 import { UpdateReportDto } from '../../application/dtos/reports/update-report.dto';
 import { Report } from '../../domain/entities/report.entity';
-import { PetSize, PetType, PostType } from '../../domain/enums';
+import { PetSize, PetType, PostType, UserRole } from '../../domain/enums';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RolesGuard } from '../guards/roles.guard';
 import { Roles } from '../decorators/roles.decorator';
@@ -45,6 +46,7 @@ export class ReportsController {
   constructor(
     private readonly reportsService: ReportsService,
     private readonly azureBlobStorageService: AzureBlobStorageService,
+    private readonly visionService: VisionService,
   ) {}
 
   // ─── Imagen ───────────────────────────────────────────────────────────────
@@ -78,6 +80,60 @@ export class ReportsController {
       if (error instanceof BadRequestException) throw error;
       throw new InternalServerErrorException('No fue posible cargar la imagen en este momento');
     }
+  }
+
+  // ─── Estado del servicio IA ───────────────────────────────────────────────
+
+  @Get('ai-status')
+  @ApiOperation({
+    summary: 'Estado del servicio IA',
+    description: 'Indica si el servicio de embeddings y visión por Gemini está disponible.',
+  })
+  @ApiResponse({ status: 200, schema: { example: { available: true } } })
+  getAiStatus(): { available: boolean } {
+    return { available: this.visionService.isAvailable() };
+  }
+
+  // ─── Análisis de imagen por IA ────────────────────────────────────────────
+
+  @Post('analyze-image')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('image', {
+      limits: { fileSize: 5 * 1024 * 1024 },
+      fileFilter: (req, file, callback) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|webp)$/)) {
+          return callback(
+            new BadRequestException('Solo se permiten imágenes jpg, png o webp'),
+            false,
+          );
+        }
+        callback(null, true);
+      },
+    }),
+  )
+  @ApiOperation({
+    summary: 'Analizar imagen con IA',
+    description:
+      'Usa Gemini Vision para detectar especie, color y raza del animal en la imagen. ' +
+      'Retorna null en los campos que no pueda identificar y un mensaje explicativo.',
+  })
+  @ApiResponse({
+    status: 200,
+    schema: {
+      example: {
+        species: 'dog',
+        color: 'marrón con blanco',
+        breed: 'Labrador',
+        confidence: 'high',
+        aiAvailable: true,
+        message: null,
+      },
+    },
+  })
+  async analyzeImage(@UploadedFile() file: any) {
+    if (!file) throw new BadRequestException('Archivo de imagen requerido');
+    return this.visionService.analyzeImage(file.buffer, file.mimetype);
   }
 
   // ─── Crear ────────────────────────────────────────────────────────────────
@@ -344,27 +400,11 @@ export class ReportsController {
     return this.reportsService.removeReport(id, user.id);
   }
 
-  // ─── Admin: listar todos ──────────────────────────────────────────────────
-
-  @Get('admin/all')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Admin: listar todos los reportes (incluye inactivos)' })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
-  async adminFindAll(@Query('page') page = '1', @Query('limit') limit = '20') {
-    const parsedPage = Math.max(1, Number(page) || 1);
-    const parsedLimit = Math.min(100, Math.max(1, Number(limit) || 20));
-    return this.reportsService.adminFindAll(parsedPage, parsedLimit);
-  }
-
-  // ─── Admin: eliminar cualquier reporte ───────────────────────────────────
-
   @Delete('admin/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Admin: eliminar cualquier reporte sin verificar propiedad' })
+  @ApiOperation({ summary: 'Eliminar reporte (admin, sin verificar propiedad)' })
   @ApiParam({ name: 'id', type: String })
   async adminRemove(@Param('id') id: string): Promise<void> {
     return this.reportsService.adminRemoveReport(id);

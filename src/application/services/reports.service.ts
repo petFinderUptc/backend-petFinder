@@ -445,45 +445,11 @@ export class ReportsService {
     await this.reportRepository.update(id, report);
   }
 
-  /** Solo para administradores: elimina cualquier reporte sin verificar propiedad. */
   async adminRemoveReport(id: string): Promise<void> {
     const report = await this.reportRepository.findById(id);
     if (!report) throw new NotFoundException('Reporte no encontrado');
     report.deactivate();
     await this.reportRepository.update(id, report);
-  }
-
-  /** Solo para administradores: lista todos los reportes sin filtro de estado. */
-  async adminFindAll(
-    page: number,
-    limit: number,
-  ): Promise<{
-    data: Report[];
-    pagination: {
-      page: number;
-      limit: number;
-      total: number;
-      totalPages: number;
-      hasNextPage: boolean;
-      hasPrevPage: boolean;
-    };
-  }> {
-    const all = await this.reportRepository.findAll();
-    const total = all.length;
-    const totalPages = Math.max(1, Math.ceil(total / limit));
-    const offset = (page - 1) * limit;
-    const data = all.slice(offset, offset + limit);
-    return {
-      data,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNextPage: page < totalPages,
-        hasPrevPage: page > 1,
-      },
-    };
   }
 
   async getStats(): Promise<{ totalActive: number }> {

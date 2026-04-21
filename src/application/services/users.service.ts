@@ -85,6 +85,11 @@ export class UsersService {
       bio: updateUserDto.bio,
     });
 
+    if (updateUserDto.notificationsEnabled !== undefined) {
+      user.notificationsEnabled = updateUserDto.notificationsEnabled;
+      user.updatedAt = new Date();
+    }
+
     const updatedUser = await this.userRepository.update(id, user);
     return this.toResponseDto(updatedUser);
   }
@@ -236,6 +241,7 @@ export class UsersService {
       isActive: user.isActive,
       emailVerified: user.emailVerified || false,
       phoneVerified: user.phoneVerified || false,
+      notificationsEnabled: user.notificationsEnabled ?? true,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     });
