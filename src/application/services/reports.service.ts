@@ -421,6 +421,13 @@ export class ReportsService {
     await this.reportRepository.update(id, report);
   }
 
+  async adminRemoveReport(id: string): Promise<void> {
+    const report = await this.reportRepository.findById(id);
+    if (!report) throw new NotFoundException('Reporte no encontrado');
+    report.deactivate();
+    await this.reportRepository.update(id, report);
+  }
+
   async getStats(): Promise<{ totalActive: number }> {
     const totalActive = await this.reportRepository.countActive();
     return { totalActive };

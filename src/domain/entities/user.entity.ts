@@ -22,6 +22,7 @@ export class User {
     public lastLogin?: Date,
     public failedLoginAttempts?: number,
     public accountLockedUntil?: Date,
+    public notificationsEnabled?: boolean,
   ) {
     this.validate();
   }
@@ -210,6 +211,7 @@ export class User {
       lastLogin: this.lastLogin,
       failedLoginAttempts: this.failedLoginAttempts || 0,
       accountLockedUntil: this.accountLockedUntil,
+      notificationsEnabled: this.notificationsEnabled ?? true,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     };
@@ -248,6 +250,7 @@ export class User {
           ? data.accountLockedUntil
           : new Date(data.accountLockedUntil)
         : undefined,
+      data.notificationsEnabled ?? true,
     );
   }
 }

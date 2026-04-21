@@ -30,8 +30,10 @@ import { ReportsService, ReportWithScore } from '../../application/services/repo
 import { CreateReportDto } from '../../application/dtos/reports/create-report.dto';
 import { UpdateReportDto } from '../../application/dtos/reports/update-report.dto';
 import { Report } from '../../domain/entities/report.entity';
-import { PetSize, PetType, PostType } from '../../domain/enums';
+import { PetSize, PetType, PostType, UserRole } from '../../domain/enums';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
+import { RolesGuard } from '../guards/roles.guard';
+import { Roles } from '../decorators/roles.decorator';
 import { CurrentUser, UserFromJwt } from '../decorators/current-user.decorator';
 import { AzureBlobStorageService } from '../../infrastructure/external-services/azure';
 
@@ -293,5 +295,15 @@ export class ReportsController {
   @ApiParam({ name: 'id', type: String })
   async remove(@Param('id') id: string, @CurrentUser() user: UserFromJwt): Promise<void> {
     return this.reportsService.removeReport(id, user.id);
+  }
+
+  @Delete('admin/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Eliminar reporte (admin, sin verificar propiedad)' })
+  @ApiParam({ name: 'id', type: String })
+  async adminRemove(@Param('id') id: string): Promise<void> {
+    return this.reportsService.adminRemoveReport(id);
   }
 }
