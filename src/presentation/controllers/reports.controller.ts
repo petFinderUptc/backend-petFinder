@@ -37,7 +37,6 @@ import { RolesGuard } from '../guards/roles.guard';
 import { Roles } from '../decorators/roles.decorator';
 import { CurrentUser, UserFromJwt } from '../decorators/current-user.decorator';
 import { AzureBlobStorageService } from '../../infrastructure/external-services/azure';
-import { UserRole } from '../../domain/enums';
 
 @ApiTags('Reports')
 @ApiBearerAuth('JWT')
