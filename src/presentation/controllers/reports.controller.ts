@@ -16,6 +16,7 @@ import {
   InternalServerErrorException,
   Header,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
@@ -130,6 +131,7 @@ export class ReportsController {
 
   // ─── Búsqueda semántica ───────────────────────────────────────────────────
 
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Get('search')
   @ApiOperation({
     summary: 'Búsqueda semántica',
